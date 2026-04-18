@@ -1,1 +1,1 @@
-# COS30019-Introduction-to-AI---Assignment-2B
+# COS30019-IntroductionToAI-Assignment2B
