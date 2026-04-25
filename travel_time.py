@@ -1,5 +1,23 @@
 import math
 
+def calculate_haversine_distance_km(lat1, lon1, lat2, lon2):
+    """
+    Estimates the straight-line distance between two two latitude/longitude coordinate points using the Haversine formula.
+    This gives an approximate distance in kilometres between two SCATS sites.
+    returns: estimated distance in kilometres
+    """
+    earth_radius_km = 6371.0
+    lat1 = math.radians(float(lat1))
+    lon1 = math.radians(float(lon1))
+    lat2 = math.radians(float(lat2))
+    lon2 = math.radians(float(lon2))
+    lat_difference = lat2 - lat1
+    lon_difference = lon2 - lon1
+    distance_check = (math.sin(lat_difference / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(lon_difference / 2) ** 2)
+    angle_distance = 2 * math.atan2(math.sqrt(distance_check),math.sqrt(1 - distance_check))
+
+    return earth_radius_km * angle_distance
+
 def calculate_travel_time_from_traffic_flow(predicted_flow, distance_km, is_congested=False, intersection_delay_seconds=30.0):
     """
     Converts predicted traffic flow (vehicle count) into estimated travel time in minutes.
@@ -9,7 +27,7 @@ def calculate_travel_time_from_traffic_flow(predicted_flow, distance_km, is_cong
     distance_km: distance between two SCATS sites in kilometres
     """        
     # The absolute peak of the parabola is 1500. If model predicts > 1500, cap it
-    flow = min(predicted_flow, 1500.0)
+    flow = min(float(predicted_flow), 1500.0)
     
     # If road not congested, and if flow is at or below 351 the speed is capped at the 60 km/h speed limit
     if flow <= 351.0 and not is_congested:
