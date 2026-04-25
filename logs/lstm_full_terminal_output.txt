@@ -1,0 +1,94 @@
+Loading data...
+Training data shape: (20200, 12, 1)
+
+--- Model Architecture ---
+Model: "sequential"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ lstm (LSTM)                 (None, 64)                16896     
+                                                                 
+ dropout (Dropout)           (None, 64)                0         
+                                                                 
+ dense (Dense)               (None, 1)                 65        
+                                                                 
+=================================================================
+Total params: 16961 (66.25 KB)
+Trainable params: 16961 (66.25 KB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________
+
+Starting training...
+Epoch 01 - loss: 0.013315 - mae: 0.083954 - rmse: 0.115389 - val_loss: 0.007200 - val_mae: 0.059319 - val_rmse: 0.084851
+Epoch 02 - loss: 0.004841 - mae: 0.050142 - rmse: 0.069576 - val_loss: 0.004397 - val_mae: 0.047764 - val_rmse: 0.066309
+Epoch 03 - loss: 0.003860 - mae: 0.045272 - rmse: 0.062127 - val_loss: 0.003462 - val_mae: 0.042561 - val_rmse: 0.058842
+Epoch 04 - loss: 0.003118 - mae: 0.041081 - rmse: 0.055843 - val_loss: 0.002906 - val_mae: 0.040752 - val_rmse: 0.053904
+Epoch 05 - loss: 0.002643 - mae: 0.037682 - rmse: 0.051405 - val_loss: 0.002633 - val_mae: 0.035287 - val_rmse: 0.051315
+Epoch 06 - loss: 0.002412 - mae: 0.035887 - rmse: 0.049110 - val_loss: 0.002155 - val_mae: 0.033420 - val_rmse: 0.046422
+Epoch 07 - loss: 0.002244 - mae: 0.034730 - rmse: 0.047369 - val_loss: 0.001928 - val_mae: 0.031010 - val_rmse: 0.043909
+Epoch 08 - loss: 0.002053 - mae: 0.033249 - rmse: 0.045309 - val_loss: 0.001979 - val_mae: 0.032828 - val_rmse: 0.044488
+Epoch 09 - loss: 0.001924 - mae: 0.032078 - rmse: 0.043861 - val_loss: 0.001788 - val_mae: 0.031236 - val_rmse: 0.042289
+Epoch 10 - loss: 0.001852 - mae: 0.031900 - rmse: 0.043034 - val_loss: 0.001536 - val_mae: 0.028033 - val_rmse: 0.039187
+Epoch 11 - loss: 0.001761 - mae: 0.030696 - rmse: 0.041958 - val_loss: 0.001524 - val_mae: 0.027394 - val_rmse: 0.039037
+Epoch 12 - loss: 0.001697 - mae: 0.030208 - rmse: 0.041191 - val_loss: 0.001419 - val_mae: 0.026911 - val_rmse: 0.037663
+Epoch 13 - loss: 0.001611 - mae: 0.029548 - rmse: 0.040143 - val_loss: 0.001349 - val_mae: 0.026027 - val_rmse: 0.036725
+Epoch 14 - loss: 0.001557 - mae: 0.029115 - rmse: 0.039460 - val_loss: 0.001281 - val_mae: 0.025203 - val_rmse: 0.035797
+Epoch 15 - loss: 0.001517 - mae: 0.028659 - rmse: 0.038948 - val_loss: 0.001306 - val_mae: 0.024891 - val_rmse: 0.036137
+Epoch 16 - loss: 0.001490 - mae: 0.028317 - rmse: 0.038605 - val_loss: 0.001305 - val_mae: 0.024645 - val_rmse: 0.036129
+Epoch 17 - loss: 0.001461 - mae: 0.028111 - rmse: 0.038224 - val_loss: 0.001218 - val_mae: 0.023942 - val_rmse: 0.034896
+Epoch 18 - loss: 0.001444 - mae: 0.027830 - rmse: 0.038003 - val_loss: 0.001279 - val_mae: 0.024759 - val_rmse: 0.035762
+Epoch 19 - loss: 0.001430 - mae: 0.027716 - rmse: 0.037813 - val_loss: 0.001200 - val_mae: 0.024185 - val_rmse: 0.034644
+Epoch 20 - loss: 0.001426 - mae: 0.027603 - rmse: 0.037763 - val_loss: 0.001201 - val_mae: 0.023098 - val_rmse: 0.034661
+Epoch 21 - loss: 0.001398 - mae: 0.027333 - rmse: 0.037386 - val_loss: 0.001091 - val_mae: 0.023434 - val_rmse: 0.033035
+Epoch 22 - loss: 0.001390 - mae: 0.027366 - rmse: 0.037281 - val_loss: 0.001226 - val_mae: 0.024584 - val_rmse: 0.035008
+Epoch 23 - loss: 0.001362 - mae: 0.027084 - rmse: 0.036911 - val_loss: 0.001087 - val_mae: 0.023288 - val_rmse: 0.032969
+Epoch 24 - loss: 0.001352 - mae: 0.026869 - rmse: 0.036765 - val_loss: 0.001135 - val_mae: 0.022755 - val_rmse: 0.033692
+Epoch 25 - loss: 0.001360 - mae: 0.027028 - rmse: 0.036877 - val_loss: 0.001180 - val_mae: 0.023506 - val_rmse: 0.034346
+Epoch 26 - loss: 0.001331 - mae: 0.026672 - rmse: 0.036482 - val_loss: 0.001065 - val_mae: 0.022075 - val_rmse: 0.032634
+Epoch 27 - loss: 0.001334 - mae: 0.026627 - rmse: 0.036524 - val_loss: 0.001108 - val_mae: 0.022680 - val_rmse: 0.033283
+Epoch 28 - loss: 0.001328 - mae: 0.026612 - rmse: 0.036448 - val_loss: 0.001101 - val_mae: 0.022544 - val_rmse: 0.033177
+Epoch 29 - loss: 0.001318 - mae: 0.026394 - rmse: 0.036309 - val_loss: 0.001048 - val_mae: 0.022074 - val_rmse: 0.032376
+Epoch 30 - loss: 0.001322 - mae: 0.026478 - rmse: 0.036357 - val_loss: 0.000994 - val_mae: 0.022043 - val_rmse: 0.031527
+Epoch 31 - loss: 0.001276 - mae: 0.026041 - rmse: 0.035722 - val_loss: 0.001049 - val_mae: 0.021725 - val_rmse: 0.032384
+Epoch 32 - loss: 0.001255 - mae: 0.025905 - rmse: 0.035428 - val_loss: 0.001012 - val_mae: 0.021773 - val_rmse: 0.031806
+Epoch 33 - loss: 0.001270 - mae: 0.026014 - rmse: 0.035632 - val_loss: 0.001000 - val_mae: 0.021009 - val_rmse: 0.031629
+Epoch 34 - loss: 0.001280 - mae: 0.025977 - rmse: 0.035772 - val_loss: 0.001006 - val_mae: 0.021672 - val_rmse: 0.031721
+Epoch 35 - loss: 0.001257 - mae: 0.025790 - rmse: 0.035460 - val_loss: 0.000958 - val_mae: 0.020890 - val_rmse: 0.030953
+Epoch 36 - loss: 0.001237 - mae: 0.025666 - rmse: 0.035167 - val_loss: 0.001009 - val_mae: 0.021437 - val_rmse: 0.031770
+Epoch 37 - loss: 0.001247 - mae: 0.025694 - rmse: 0.035308 - val_loss: 0.000976 - val_mae: 0.020988 - val_rmse: 0.031237
+Epoch 38 - loss: 0.001235 - mae: 0.025530 - rmse: 0.035147 - val_loss: 0.000940 - val_mae: 0.021119 - val_rmse: 0.030663
+Epoch 39 - loss: 0.001220 - mae: 0.025429 - rmse: 0.034923 - val_loss: 0.000921 - val_mae: 0.020385 - val_rmse: 0.030351
+Epoch 40 - loss: 0.001201 - mae: 0.025271 - rmse: 0.034655 - val_loss: 0.000909 - val_mae: 0.020320 - val_rmse: 0.030145
+Epoch 41 - loss: 0.001203 - mae: 0.025251 - rmse: 0.034691 - val_loss: 0.000988 - val_mae: 0.021846 - val_rmse: 0.031430
+Epoch 42 - loss: 0.001198 - mae: 0.025202 - rmse: 0.034611 - val_loss: 0.001220 - val_mae: 0.024162 - val_rmse: 0.034922
+Epoch 43 - loss: 0.001217 - mae: 0.025269 - rmse: 0.034882 - val_loss: 0.000922 - val_mae: 0.020689 - val_rmse: 0.030360
+Epoch 44 - loss: 0.001200 - mae: 0.025112 - rmse: 0.034636 - val_loss: 0.000935 - val_mae: 0.020324 - val_rmse: 0.030583
+Epoch 45 - loss: 0.001180 - mae: 0.025008 - rmse: 0.034350 - val_loss: 0.000899 - val_mae: 0.020431 - val_rmse: 0.029978
+Epoch 46 - loss: 0.001162 - mae: 0.024737 - rmse: 0.034091 - val_loss: 0.000932 - val_mae: 0.020574 - val_rmse: 0.030531
+Epoch 47 - loss: 0.001176 - mae: 0.024880 - rmse: 0.034294 - val_loss: 0.000962 - val_mae: 0.020402 - val_rmse: 0.031021
+Epoch 48 - loss: 0.001162 - mae: 0.024789 - rmse: 0.034090 - val_loss: 0.000996 - val_mae: 0.022152 - val_rmse: 0.031565
+Epoch 49 - loss: 0.001149 - mae: 0.024481 - rmse: 0.033898 - val_loss: 0.000881 - val_mae: 0.019804 - val_rmse: 0.029688
+Epoch 50 - loss: 0.001141 - mae: 0.024537 - rmse: 0.033778 - val_loss: 0.000893 - val_mae: 0.020091 - val_rmse: 0.029883
+
+Evaluating on Test Data...
+Test MSE (compressed scale):  0.000969
+Test MAE (compressed scale):  0.021238
+Test RMSE (compressed scale): 0.031133
+Model saved to 'models/lstm_traffic_model.keras'
+
+Generating LSTM Evaluation Metrics...
+
+  1/119 [..............................] - ETA: 28s
+ 41/119 [=========>....................] - ETA: 0s 
+ 83/119 [===================>..........] - ETA: 0s
+119/119 [==============================] - 0s 1ms/step
+
+--- Model Performance Report ---
+Mean Absolute Error (MAE): 112.94 vehicles
+Root Mean Squared Error (RMSE): 165.57 vehicles
+R-Squared Score: 0.9740 (closer to 1.0 means better trend fit)
+--------------------------------
+Evaluation plots saved as 'logs/lstm_evaluation_plots.png'!
+
+Generating Text Summary Report...
+Summary saved to 'logs/lstm_training_summary.txt'!

@@ -1,0 +1,90 @@
+Loading data for GRU Model...
+Training data shape: (20200, 12, 1)
+
+--- GRU Model Architecture ---
+Model: "sequential"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ gru (GRU)                   (None, 64)                12864     
+                                                                 
+ dropout (Dropout)           (None, 64)                0         
+                                                                 
+ dense (Dense)               (None, 1)                 65        
+                                                                 
+=================================================================
+Total params: 12929 (50.50 KB)
+Trainable params: 12929 (50.50 KB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________
+
+Starting GRU training...
+Epoch 01 - loss: 0.013852 - mae: 0.082064 - rmse: 0.117695 - val_loss: 0.005683 - val_mae: 0.052229 - val_rmse: 0.075387
+Epoch 02 - loss: 0.004517 - mae: 0.047771 - rmse: 0.067206 - val_loss: 0.004619 - val_mae: 0.048855 - val_rmse: 0.067960
+Epoch 03 - loss: 0.004064 - mae: 0.045492 - rmse: 0.063750 - val_loss: 0.004318 - val_mae: 0.050596 - val_rmse: 0.065713
+Epoch 04 - loss: 0.003468 - mae: 0.042621 - rmse: 0.058886 - val_loss: 0.003331 - val_mae: 0.042891 - val_rmse: 0.057718
+Epoch 05 - loss: 0.002865 - mae: 0.039359 - rmse: 0.053528 - val_loss: 0.002681 - val_mae: 0.036995 - val_rmse: 0.051778
+Epoch 06 - loss: 0.002588 - mae: 0.037305 - rmse: 0.050869 - val_loss: 0.002332 - val_mae: 0.034670 - val_rmse: 0.048291
+Epoch 07 - loss: 0.002386 - mae: 0.035798 - rmse: 0.048843 - val_loss: 0.002176 - val_mae: 0.032017 - val_rmse: 0.046649
+Epoch 08 - loss: 0.002201 - mae: 0.034175 - rmse: 0.046916 - val_loss: 0.002137 - val_mae: 0.033192 - val_rmse: 0.046232
+Epoch 09 - loss: 0.002085 - mae: 0.033364 - rmse: 0.045665 - val_loss: 0.001938 - val_mae: 0.031559 - val_rmse: 0.044020
+Epoch 10 - loss: 0.001939 - mae: 0.032019 - rmse: 0.044030 - val_loss: 0.001662 - val_mae: 0.028673 - val_rmse: 0.040772
+Epoch 11 - loss: 0.001861 - mae: 0.031552 - rmse: 0.043144 - val_loss: 0.001588 - val_mae: 0.027341 - val_rmse: 0.039845
+Epoch 12 - loss: 0.001808 - mae: 0.031019 - rmse: 0.042516 - val_loss: 0.001444 - val_mae: 0.026157 - val_rmse: 0.037998
+Epoch 13 - loss: 0.001692 - mae: 0.030057 - rmse: 0.041133 - val_loss: 0.001702 - val_mae: 0.027297 - val_rmse: 0.041255
+Epoch 14 - loss: 0.001648 - mae: 0.029607 - rmse: 0.040591 - val_loss: 0.001389 - val_mae: 0.025607 - val_rmse: 0.037266
+Epoch 15 - loss: 0.001601 - mae: 0.029144 - rmse: 0.040010 - val_loss: 0.001305 - val_mae: 0.025166 - val_rmse: 0.036127
+Epoch 16 - loss: 0.001566 - mae: 0.028800 - rmse: 0.039567 - val_loss: 0.001507 - val_mae: 0.026630 - val_rmse: 0.038814
+Epoch 17 - loss: 0.001526 - mae: 0.028475 - rmse: 0.039059 - val_loss: 0.001219 - val_mae: 0.023850 - val_rmse: 0.034912
+Epoch 18 - loss: 0.001495 - mae: 0.028295 - rmse: 0.038660 - val_loss: 0.001228 - val_mae: 0.024562 - val_rmse: 0.035037
+Epoch 19 - loss: 0.001460 - mae: 0.027881 - rmse: 0.038211 - val_loss: 0.001254 - val_mae: 0.023955 - val_rmse: 0.035409
+Epoch 20 - loss: 0.001468 - mae: 0.027805 - rmse: 0.038313 - val_loss: 0.001177 - val_mae: 0.024606 - val_rmse: 0.034312
+Epoch 21 - loss: 0.001393 - mae: 0.027130 - rmse: 0.037326 - val_loss: 0.001187 - val_mae: 0.023193 - val_rmse: 0.034447
+Epoch 22 - loss: 0.001368 - mae: 0.026947 - rmse: 0.036981 - val_loss: 0.001233 - val_mae: 0.023892 - val_rmse: 0.035113
+Epoch 23 - loss: 0.001375 - mae: 0.026990 - rmse: 0.037077 - val_loss: 0.001055 - val_mae: 0.022352 - val_rmse: 0.032488
+Epoch 24 - loss: 0.001350 - mae: 0.026779 - rmse: 0.036738 - val_loss: 0.001054 - val_mae: 0.022441 - val_rmse: 0.032464
+Epoch 25 - loss: 0.001316 - mae: 0.026402 - rmse: 0.036272 - val_loss: 0.001174 - val_mae: 0.023327 - val_rmse: 0.034261
+Epoch 26 - loss: 0.001320 - mae: 0.026465 - rmse: 0.036333 - val_loss: 0.001061 - val_mae: 0.021849 - val_rmse: 0.032570
+Epoch 27 - loss: 0.001288 - mae: 0.025987 - rmse: 0.035886 - val_loss: 0.001013 - val_mae: 0.022245 - val_rmse: 0.031829
+Epoch 28 - loss: 0.001264 - mae: 0.025931 - rmse: 0.035558 - val_loss: 0.000973 - val_mae: 0.021335 - val_rmse: 0.031197
+Epoch 29 - loss: 0.001279 - mae: 0.025929 - rmse: 0.035760 - val_loss: 0.001005 - val_mae: 0.021068 - val_rmse: 0.031698
+Epoch 30 - loss: 0.001242 - mae: 0.025557 - rmse: 0.035235 - val_loss: 0.000982 - val_mae: 0.021371 - val_rmse: 0.031336
+Epoch 31 - loss: 0.001217 - mae: 0.025250 - rmse: 0.034882 - val_loss: 0.000891 - val_mae: 0.020235 - val_rmse: 0.029855
+Epoch 32 - loss: 0.001207 - mae: 0.025145 - rmse: 0.034742 - val_loss: 0.001031 - val_mae: 0.021622 - val_rmse: 0.032110
+Epoch 33 - loss: 0.001221 - mae: 0.025392 - rmse: 0.034937 - val_loss: 0.000957 - val_mae: 0.021069 - val_rmse: 0.030932
+Epoch 34 - loss: 0.001170 - mae: 0.024778 - rmse: 0.034207 - val_loss: 0.000929 - val_mae: 0.020807 - val_rmse: 0.030473
+Epoch 35 - loss: 0.001174 - mae: 0.024911 - rmse: 0.034263 - val_loss: 0.000951 - val_mae: 0.020959 - val_rmse: 0.030832
+Epoch 36 - loss: 0.001160 - mae: 0.024692 - rmse: 0.034052 - val_loss: 0.000855 - val_mae: 0.019505 - val_rmse: 0.029248
+Epoch 37 - loss: 0.001139 - mae: 0.024585 - rmse: 0.033745 - val_loss: 0.000939 - val_mae: 0.021337 - val_rmse: 0.030645
+Epoch 38 - loss: 0.001135 - mae: 0.024475 - rmse: 0.033687 - val_loss: 0.000926 - val_mae: 0.020051 - val_rmse: 0.030429
+Epoch 39 - loss: 0.001115 - mae: 0.024217 - rmse: 0.033399 - val_loss: 0.000910 - val_mae: 0.020007 - val_rmse: 0.030171
+Epoch 40 - loss: 0.001108 - mae: 0.024256 - rmse: 0.033282 - val_loss: 0.000814 - val_mae: 0.019307 - val_rmse: 0.028536
+Epoch 41 - loss: 0.001112 - mae: 0.024098 - rmse: 0.033349 - val_loss: 0.000791 - val_mae: 0.018770 - val_rmse: 0.028132
+Epoch 42 - loss: 0.001107 - mae: 0.024070 - rmse: 0.033267 - val_loss: 0.000899 - val_mae: 0.021736 - val_rmse: 0.029985
+Epoch 43 - loss: 0.001105 - mae: 0.024185 - rmse: 0.033241 - val_loss: 0.000844 - val_mae: 0.019456 - val_rmse: 0.029052
+Epoch 44 - loss: 0.001094 - mae: 0.024094 - rmse: 0.033070 - val_loss: 0.000894 - val_mae: 0.019763 - val_rmse: 0.029908
+Epoch 45 - loss: 0.001070 - mae: 0.023649 - rmse: 0.032710 - val_loss: 0.000794 - val_mae: 0.018996 - val_rmse: 0.028177
+Epoch 46 - loss: 0.001071 - mae: 0.023885 - rmse: 0.032720 - val_loss: 0.000876 - val_mae: 0.019366 - val_rmse: 0.029599
+
+Evaluating GRU on Test Data...
+Test MSE (compressed scale):  0.000934
+Test MAE (compressed scale):  0.020689
+Test RMSE (compressed scale): 0.030559
+Model saved to 'models/gru_traffic_model.keras'
+
+Generating GRU Evaluation Metrics...
+
+  1/119 [..............................] - ETA: 26s
+ 37/119 [========>.....................] - ETA: 0s 
+ 80/119 [===================>..........] - ETA: 0s
+119/119 [==============================] - 0s 1ms/step
+
+--- GRU Model Performance Report ---
+Mean Absolute Error (MAE): 110.02 vehicles
+Root Mean Squared Error (RMSE): 162.51 vehicles
+R-Squared Score: 0.9749 (closer to 1.0 means better trend fit)
+------------------------------------
+Evaluation plots saved as 'logs/gru_evaluation_plots.png'!
+
+Generating Text Summary Report...
+Summary saved to 'logs/gru_training_summary.txt'!

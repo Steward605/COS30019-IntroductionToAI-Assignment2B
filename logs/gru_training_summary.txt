@@ -1,0 +1,52 @@
+======================================================================
+TRAINING SUMMARY - LEARNING CURVES (GRU REGRESSION)
+======================================================================
+
+NOTE:
+----------------------------------------------------------------------
+The model was trained using compressed traffic-flow values, not the original vehicle counts. Because of this, the training and validation errors are also shown on the compressed scale.
+
+After testing, the predictions are converted back into real vehicle counts using the saved scaler. The final MAE and RMSE values in the test performance section show the actual prediction error in vehicles.
+
+INITIAL METRICS (Epoch 1):
+----------------------------------------------------------------------
+Training MSE (compressed scale):         0.0139 
+Training RMSE (compressed scale):        0.1177
+Training MAE (compressed scale):         0.0821
+  
+Validation MSE (compressed scale):       0.0057 
+Validation RMSE (compressed scale):      0.0754
+Validation MAE (compressed scale):       0.0522
+
+FINAL METRICS (Last Epoch):
+----------------------------------------------------------------------
+Training MSE (compressed scale):         0.0011 
+Training RMSE (compressed scale):        0.0327
+Training MAE (compressed scale):         0.0239
+  
+Validation MSE (compressed scale):       0.0009 
+Validation RMSE (compressed scale):      0.0296
+Validation MAE (compressed scale):       0.0194
+
+BEST METRICS DURING TRAINING:
+----------------------------------------------------------------------
+Best Validation MAE (compressed scale):  0.0188 (Achieved on Epoch 41)
+Best Validation MSE (compressed scale):  0.0008 
+
+IMPROVEMENT METRICS:
+----------------------------------------------------------------------
+MSE Reduction (compressed scale):        0.0128 
+RMSE Reduction (compressed scale):       0.0850
+MAE Reduction (compressed scale):        0.0582
+  
+OVERFITTING ANALYSIS:
+----------------------------------------------------------------------
+Final MAE Gap (Val - Train, compressed scale): -0.0045
+Generalization Status:               EXCELLENT: Generalizing perfectly (Validation error is equal to or lower than training).
+  
+REAL-WORLD TEST PERFORMANCE:
+----------------------------------------------------------------------
+Test MAE:       110.02 vehicles
+Test RMSE:      162.51 vehicles
+Test R-Squared: 0.9749
+======================================================================
