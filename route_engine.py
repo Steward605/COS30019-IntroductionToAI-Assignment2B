@@ -3,7 +3,6 @@ import json
 import pickle
 import numpy as np
 import pandas as pd
-import networkx as nx
 import tensorflow as tf
 from travel_time import calculate_travel_time_from_traffic_flow
 from algorithms.astar import a_star_search
@@ -23,6 +22,8 @@ MODEL_FILES = {"gru": Path("models/gru_traffic_model.keras"),"lstm": Path("model
 SUPPORTED_ALGORITHMS = ["bfs", "dfs", "gbfs", "astar", "cus1", "cus2"]
 FLOW_SOURCE = "destination"  # travel time from SCATS site A to B approximated using the hourly volume at SCATS site B, options: "destination", "start"
 OUTPUT_ROUTE_RESULTS_FILE = Path("route_results.csv")
+TOP_K_CANDIDATE_MULTIPLIER = 1
+MAX_TOP_K_ATTEMPTS = 25
 
 # LOAD FILES
 # ============================================================
@@ -249,52 +250,90 @@ def run_assignment_2a_algorithm(algorithm_name, graph, node_positions, origin_sc
         "message": "Route found."
     }
     
-def run_all_assignment_2a_algorithms(graph, node_positions, origin_scats, destination_scats, algorithm_names=None):
+def get_path_edges(path):
+    return [(int(start), int(end)) for start, end in zip(path[:-1], path[1:])]
+
+def build_graph_without_blocked_edges(graph, blocked_edges):
+    blocked_edges = set(blocked_edges)
+    modified_graph = {}
+    for start_node, neighbours in graph.items():
+        modified_neighbours = []
+        for neighbour_node, edge_cost in neighbours:
+            edge_key = (int(start_node), int(neighbour_node))
+            if edge_key in blocked_edges:
+                continue
+            modified_neighbours.append((neighbour_node, edge_cost))
+        modified_graph[start_node] = modified_neighbours
+    return modified_graph
+
+def make_top_k_route_record(algorithm_name, route_number, path, travel_time_minutes, nodes_created):
+    return {
+        "algorithm": algorithm_name,
+        "route_number": route_number,
+        "found": True,
+        "path": path,
+        "travel_time_minutes": round(float(travel_time_minutes), 2),
+        "nodes_created": nodes_created,
+        "message": "Route found."
+    }
+
+def find_top_k_routes_with_original_algorithm(algorithm_name,graph,node_positions,origin_scats,destination_scats,top_k_routes):
+    candidate_routes = []
+    seen_paths = set()
+    pending_blocked_edge_sets = [frozenset()]
+    seen_blocked_edge_sets = {frozenset()}
+    attempts = 0
+    target_candidate_count = top_k_routes
+
+    while (pending_blocked_edge_sets and attempts < MAX_TOP_K_ATTEMPTS and len(candidate_routes) < target_candidate_count):
+        blocked_edges = pending_blocked_edge_sets.pop(0)
+        modified_graph = build_graph_without_blocked_edges(graph, blocked_edges)
+
+        # Calls the original ported A2A algorithm.
+        algorithm_result = run_assignment_2a_algorithm(algorithm_name=algorithm_name, graph=modified_graph, node_positions=node_positions, origin_scats=origin_scats, destination_scats=destination_scats)
+
+        attempts += 1
+        if not algorithm_result["found"]:
+            continue
+        path = algorithm_result["path"]
+        path_key = tuple(path)
+        if path_key not in seen_paths:
+            seen_paths.add(path_key)
+
+            # Calculate cost from the original graph, not the temporarily modified graph.
+            travel_time_minutes = calculate_path_cost(graph, path)
+
+            candidate_routes.append(make_top_k_route_record(algorithm_name=algorithm_name, route_number=0, path=path, travel_time_minutes=travel_time_minutes, nodes_created=algorithm_result["nodes_created"]))
+
+        # Create future reruns by blocking one additional edge from this found path.
+        # This prevents the exact same path while still keeping nodes and most edges usable.
+        for edge in get_path_edges(path):
+            new_blocked_edges = frozenset(set(blocked_edges) | {edge})
+            if new_blocked_edges in seen_blocked_edge_sets:
+                continue
+            seen_blocked_edge_sets.add(new_blocked_edges)
+            pending_blocked_edge_sets.append(new_blocked_edges)
+            
+    candidate_routes = sorted(candidate_routes, key=lambda route: (route["travel_time_minutes"], len(route["path"]), route["path"]))
+    selected_routes = candidate_routes[:top_k_routes]
+    for index, route in enumerate(selected_routes, start=1):
+        route["route_number"] = index
+    return selected_routes
+
+
+def run_all_assignment_2a_algorithms(graph,node_positions,origin_scats,destination_scats,top_k_routes=5,algorithm_names=None):
     if algorithm_names is None:
         algorithm_names = SUPPORTED_ALGORITHMS
     results = {}
     for algorithm_name in algorithm_names:
-        results[algorithm_name] = run_assignment_2a_algorithm(algorithm_name=algorithm_name,graph=graph,node_positions=node_positions,origin_scats=origin_scats,destination_scats=destination_scats)
+        routes = find_top_k_routes_with_original_algorithm(algorithm_name=algorithm_name, graph=graph, node_positions=node_positions, origin_scats=origin_scats, destination_scats=destination_scats, top_k_routes=top_k_routes)
+        results[algorithm_name] = {
+            "algorithm": algorithm_name,
+            "found": len(routes) > 0,
+            "routes": routes,
+            "message": "Routes found." if routes else "No route found."
+        }
     return results
-
-def build_networkx_graph(edges_with_time_df):
-    graph = nx.DiGraph()
-    for _, row in edges_with_time_df.iterrows():
-        start_scats = int(row["start_scats"])
-        end_scats = int(row["end_scats"])
-        graph.add_edge(start_scats,end_scats,distance_km=float(row["distance_km"]),travel_time_minutes=float(row["travel_time_minutes"]),predicted_flow=float(row["predicted_flow"]),flow_site=int(row["flow_site"]))
-    return graph
-
-# TOP-K ROUTES USING NETWORKX
-# ===========================
-def calculate_networkx_route_values(graph, route):
-    total_distance = 0.0
-    total_travel_time = 0.0
-    for start_node, end_node in zip(route[:-1], route[1:]):
-        edge_data = graph[start_node][end_node]
-        total_distance += float(edge_data["distance_km"])
-        total_travel_time += float(edge_data["travel_time_minutes"])
-    return total_distance, total_travel_time
-
-def find_top_k_routes(graph, origin_scats, destination_scats, top_k):
-    routes = []
-    try:
-        route_generator = nx.shortest_simple_paths(graph,source=origin_scats,target=destination_scats,weight="travel_time_minutes")
-        for route in route_generator:
-            total_distance, total_travel_time = calculate_networkx_route_values(graph, route)
-            routes.append({
-                "route_number": len(routes) + 1,
-                "path": route,
-                "distance_km": round(total_distance, 4),
-                "travel_time_minutes": round(total_travel_time, 2)
-            })
-            if len(routes) >= top_k:
-                break
-    except nx.NetworkXNoPath:
-        return []
-    except nx.NodeNotFound:
-        return []
-    return routes
 
 # OUTPUT HELPERS
 # ==============
@@ -320,30 +359,31 @@ def print_route_details(route, location_lookup):
         print(f"  {scats_site}: {location}")
     print()
 
-def save_route_results(algorithm_results, routes):
+def save_route_results(algorithm_results):
     rows = []
     for algorithm_name, algorithm_result in algorithm_results.items():
-        rows.append({
-            "source": "ASSIGNMENT_2A_ALGORITHM",
-            "algorithm": algorithm_name.upper(),
-            "route_number": 1,
-            "path": format_path(algorithm_result["path"]) if algorithm_result["found"] else "",
-            "travel_time_minutes": algorithm_result["travel_time_minutes"],
-            "distance_km": "",
-            "nodes_created": algorithm_result["nodes_created"],
-            "message": algorithm_result["message"]
-        })
-    for route in routes:
-        rows.append({
-            "source": "NETWORKX_TOP_K",
-            "algorithm": "NETWORKX",
-            "route_number": route["route_number"],
-            "path": format_path(route["path"]),
-            "travel_time_minutes": route["travel_time_minutes"],
-            "distance_km": route["distance_km"],
-            "nodes_created": "",
-            "message": "Top-k route"
-        })
+        routes = algorithm_result["routes"]
+        if not routes:
+            rows.append({
+                "source": "ASSIGNMENT_2A_ALGORITHM",
+                "algorithm": algorithm_name.upper(),
+                "route_number": "",
+                "path": "",
+                "travel_time_minutes": "",
+                "nodes_created": "",
+                "message": algorithm_result["message"]
+            })
+            continue
+        for route in routes:
+            rows.append({
+                "source": "ASSIGNMENT_2A_ALGORITHM",
+                "algorithm": algorithm_name.upper(),
+                "route_number": route["route_number"],
+                "path": format_path(route["path"]),
+                "travel_time_minutes": route["travel_time_minutes"],
+                "nodes_created": route["nodes_created"],
+                "message": route["message"]
+            })
     pd.DataFrame(rows).to_csv(OUTPUT_ROUTE_RESULTS_FILE, index=False)
 
 # This function is used by the GUI later.
@@ -354,19 +394,19 @@ def find_routes(origin_scats, destination_scats, departure_datetime, model_type=
     origin_scats = int(origin_scats)
     destination_scats = int(destination_scats)
     available_scats_sites = set(nodes_df["scats_site"].tolist())
+    
     if origin_scats not in available_scats_sites:
         raise ValueError(f"Origin SCATS {origin_scats} is not available in scats_nodes.csv.")
     if destination_scats not in available_scats_sites:
         raise ValueError(f"Destination SCATS {destination_scats} is not available in scats_nodes.csv.")
+    
     traffic_df = load_hourly_traffic_data(PROCESSED_TRAFFIC_FILE)
     model, scaler = load_model_and_scaler(model_type)
     graph_sites = set(edges_df["start_scats"].tolist()) | set(edges_df["end_scats"].tolist())
     predicted_flows = predict_flows_for_graph_sites(model=model,scaler=scaler,traffic_df=traffic_df,graph_sites=graph_sites,departure_datetime=departure_datetime)
     edges_with_time_df = build_edges_with_travel_time(edges_df, predicted_flows)
     a2a_graph = build_a2a_travel_time_graph(edges_with_time_df)
-    algorithm_results = run_all_assignment_2a_algorithms(graph=a2a_graph,node_positions=node_positions,origin_scats=origin_scats,destination_scats=destination_scats,algorithm_names=algorithm_names)
-    networkx_graph = build_networkx_graph(edges_with_time_df)
-    top_k_routes = find_top_k_routes(graph=networkx_graph,origin_scats=origin_scats,destination_scats=destination_scats,top_k=top_k_routes)
+    algorithm_results = run_all_assignment_2a_algorithms(graph=a2a_graph,node_positions=node_positions,origin_scats=origin_scats,destination_scats=destination_scats,top_k_routes=top_k_routes,algorithm_names=algorithm_names)
     location_lookup = get_location_lookup(nodes_df)
 
     return {
@@ -375,7 +415,6 @@ def find_routes(origin_scats, destination_scats, departure_datetime, model_type=
         "departure_datetime": departure_datetime,
         "model_type": model_type,
         "algorithm_results": algorithm_results,
-        "top_k_routes": top_k_routes,
         "location_lookup": location_lookup,
         "edges_with_time": edges_with_time_df
     }
@@ -390,27 +429,23 @@ def main():
     print(f"Destination SCATS: {result['destination_scats']}")
     print(f"Departure datetime: {result['departure_datetime']}")
     print()
-    print("Assignment 2A algorithm results:")
+    print("Assignment 2A top-k algorithm results:")
     algorithm_results = result["algorithm_results"]
+
     for algorithm_name, algorithm_result in algorithm_results.items():
         print()
-        print(f"{algorithm_name.upper()} result:")
-        if algorithm_result["found"]:
-            print(f"Path: {format_path(algorithm_result['path'])}")
-            print(f"Estimated travel time: {algorithm_result['travel_time_minutes']:.2f} minutes")
-            print(f"Nodes created: {algorithm_result['nodes_created']}")
-        else:
+        print(f"{algorithm_name.upper()} results:")
+        if not algorithm_result["found"]:
             print(algorithm_result["message"])
+            continue
+        for route in algorithm_result["routes"]:
+            print(f"Route {route['route_number']}:")
+            print(f"Path: {format_path(route['path'])}")
+            print(f"Estimated travel time: {route['travel_time_minutes']:.2f} minutes")
+            print(f"Nodes created: {route['nodes_created']}")
+    save_route_results(algorithm_results)
+
     print()
-    print("Top-k routes:")
-    top_k_routes = result["top_k_routes"]
-    location_lookup = result["location_lookup"]
-    if not top_k_routes:
-        print("No top-k routes found.")
-    else:
-        for route in top_k_routes:
-            print_route_details(route, location_lookup)
-    save_route_results(algorithm_results, top_k_routes)
     print(f"Route results saved to: {OUTPUT_ROUTE_RESULTS_FILE}")
 
 if __name__ == "__main__":

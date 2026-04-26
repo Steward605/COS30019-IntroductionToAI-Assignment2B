@@ -164,9 +164,9 @@ class TBRGSApp(ctk.CTk):
         self.add_sidebar_label("Model mode")
         self.model_combo = ctk.CTkComboBox(self.sidebar,values=["GRU", "LSTM", "Compare GRU + LSTM"],variable=self.model_var,width=310, state="readonly")
         self.model_combo.pack(anchor="w", padx=20, pady=(0, 10))
-
-        self.add_sidebar_label("Top-k route alternatives")
-        self.top_k_combo = ctk.CTkComboBox(self.sidebar,values=["1", "2", "3", "4", "5"],variable=self.top_k_var,width=310, state="readonly")
+        
+        self.add_sidebar_label("Top-k routes per algorithm")
+        self.top_k_combo = ctk.CTkComboBox(self.sidebar, values=["1", "2", "3", "4", "5"], variable=self.top_k_var, width=310, state="readonly")
         self.top_k_combo.pack(anchor="w", padx=20, pady=(0, 16))
 
         self.add_sidebar_label("Algorithms to run")
@@ -256,15 +256,15 @@ class TBRGSApp(ctk.CTk):
     def create_results_panel(self, parent):
         self.results_panel = ctk.CTkTabview(parent)
         self.results_panel.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
-        self.algorithm_tab = self.results_panel.add("Algorithm comparison")
-        self.top_k_tab = self.results_panel.add("Top-k routes")
+        self.algorithm_tab = self.results_panel.add("Route results")
         self.configure_treeview_style()
         self.algorithm_tree = self.create_treeview(
             parent=self.algorithm_tab,
-            columns=("model", "algorithm", "found", "time", "nodes", "path"),
+            columns=("model", "algorithm", "rank", "found", "time", "nodes", "path"),
             headings={
                 "model": "Model",
                 "algorithm": "Algorithm",
+                "rank": "Rank",
                 "found": "Found",
                 "time": "Travel time",
                 "nodes": "Nodes created",
@@ -273,28 +273,10 @@ class TBRGSApp(ctk.CTk):
             widths={
                 "model": 80,
                 "algorithm": 90,
+                "rank": 60,
                 "found": 70,
                 "time": 110,
                 "nodes": 110,
-                "path": 650
-            }
-        )
-
-        self.top_k_tree = self.create_treeview(
-            parent=self.top_k_tab,
-            columns=("model", "route", "time", "distance", "path"),
-            headings={
-                "model": "Model",
-                "route": "Route",
-                "time": "Travel time",
-                "distance": "Distance",
-                "path": "Path"
-            },
-            widths={
-                "model": 80,
-                "route": 70,
-                "time": 110,
-                "distance": 100,
                 "path": 750
             }
         )
@@ -588,7 +570,6 @@ class TBRGSApp(ctk.CTk):
             except Exception:
                 messagebox.showerror("Invalid input", "Invalid datetime format.\n\nPlease use: YYYY-MM-DD HH:MM:SS\nExample: 2006-10-15 15:00:00")
                 return
-
             top_k = int(self.top_k_var.get())
             selected_algorithms = [algorithm_name for algorithm_name, variable in self.algorithm_vars.items() if variable.get()]
             
@@ -626,7 +607,6 @@ class TBRGSApp(ctk.CTk):
         self.status_label.configure(text="Route search complete.")
         self.latest_results_by_model = results_by_model
         self.populate_algorithm_results(results_by_model)
-        self.populate_top_k_results(results_by_model)
         self.update_route_selector(results_by_model)
 
     def on_route_search_failed(self, error_message):
@@ -658,7 +638,6 @@ class TBRGSApp(ctk.CTk):
         self.selected_route_var.set("No route yet")
         self.route_combo.configure(values=["No route yet"])
         self.algorithm_tree.delete(*self.algorithm_tree.get_children())
-        self.top_k_tree.delete(*self.top_k_tree.get_children())
         self.set_edge_cost_mode("route")
         self.status_label.configure(text="Ready.")
         self.draw_map()
@@ -667,49 +646,33 @@ class TBRGSApp(ctk.CTk):
     # ==============
     def populate_algorithm_results(self, results_by_model):
         self.algorithm_tree.delete(*self.algorithm_tree.get_children())
-
         for model_type, result in results_by_model.items():
             algorithm_results = result["algorithm_results"]
             for algorithm_name, algorithm_result in algorithm_results.items():
-                found = "Yes" if algorithm_result["found"] else "No"
-                travel_time = self.format_minutes(algorithm_result["travel_time_minutes"])
-                nodes_created = str(algorithm_result["nodes_created"])
-                path_text = self.format_path(algorithm_result["path"])
-                self.algorithm_tree.insert("","end",values=(model_type.upper(),algorithm_name.upper(),found,travel_time,nodes_created,path_text))
-
-    def populate_top_k_results(self, results_by_model):
-        self.top_k_tree.delete(*self.top_k_tree.get_children())
-
-        for model_type, result in results_by_model.items():
-            top_k_routes = result["top_k_routes"]
-            for route in top_k_routes:
-                self.top_k_tree.insert("", "end", values=( model_type.upper(), route["route_number"], self.format_minutes(route["travel_time_minutes"]), f"{route['distance_km']:.2f} km", self.format_path(route["path"])))
+                routes = algorithm_result["routes"]
+                if not routes:
+                    self.algorithm_tree.insert("", "end", values=(model_type.upper(),algorithm_name.upper(),"-","No","-","-","-"))
+                    continue
+                for route in routes:
+                    self.algorithm_tree.insert("", "end", values=(model_type.upper(), algorithm_name.upper(), route["route_number"], "Yes", self.format_minutes(route["travel_time_minutes"]), str(route["nodes_created"]), self.format_path(route["path"])))
 
     def update_route_selector(self, results_by_model):
         self.route_paths = {}
-
         for model_type, result in results_by_model.items():
             for algorithm_name, algorithm_result in result["algorithm_results"].items():
-                if not algorithm_result["found"]:
-                    continue
-                label = (f"{model_type.upper()} | " f"{algorithm_name.upper()} | " f"{algorithm_result['travel_time_minutes']:.2f} min")
-                self.route_paths[label] = {
-                    "path": algorithm_result["path"],
-                    "model_type": model_type
-                }
-            for route in result["top_k_routes"]:
-                label = (f"{model_type.upper()} | " f"TOP-K {route['route_number']} | " f"{route['travel_time_minutes']:.2f} min")
-                self.route_paths[label] = {
-                    "path": route["path"],
-                    "model_type": model_type
-                }
+                routes = algorithm_result["routes"]
+                for route in routes:
+                    label = (f"{model_type.upper()} | " f"{algorithm_name.upper()} | " f"Route {route['route_number']} | " f"{route['travel_time_minutes']:.2f} min")
+                    self.route_paths[label] = {
+                        "path": route["path"],
+                        "model_type": model_type
+                    }
         if not self.route_paths:
             self.route_combo.configure(values=["No route available"])
             self.selected_route_var.set("No route available")
             self.current_path = []
             self.draw_map()
             return
-        
         route_options = list(self.route_paths.keys())
         self.route_combo.configure(values=route_options)
         default_route = self.choose_default_route(route_options)
@@ -721,7 +684,7 @@ class TBRGSApp(ctk.CTk):
 
     def choose_default_route(self, route_options):
         for option in route_options:
-            if "| ASTAR |" in option:
+            if "| ASTAR | Route 1 |" in option:
                 return option
         return route_options[0]
 
