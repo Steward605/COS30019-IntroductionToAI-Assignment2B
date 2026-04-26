@@ -1,3 +1,5 @@
 *.pdf
 .vscode/
 __pycache__/
+*.xls
+*.xlsx
