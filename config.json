@@ -1,0 +1,44 @@
+{
+  "gui_defaults": {
+    "origin_scats": 2000,
+    "destination_scats": 3002,
+    "departure_datetime": "2006-10-15 15:00:00",
+    "model_mode": "GRU",
+    "top_k_routes": 5,
+    "top_k_options": [1, 2, 3, 4, 5],
+    "selected_algorithms": ["bfs", "dfs", "gbfs", "astar", "cus1", "cus2"],
+    "click_target": "Origin",
+    "edge_cost_mode": "route",
+    "window_geometry": "1450x850",
+    "window_min_width": 1200,
+    "window_min_height": 720
+  },
+  "route_engine": {
+    "flow_source": "destination",
+    "top_k_candidate_multiplier": 1,
+    "max_top_k_attempts": 25
+  },
+  "travel_time": {
+    "is_congested": false,
+    "intersection_delay_seconds": 30.0
+  },
+  "paths": {
+    "route_graph_folder": "route_graph_data",
+    "scats_nodes_file": "route_graph_data/scats_nodes.csv",
+    "scats_edges_file": "route_graph_data/scats_edges_prepared.csv",
+    "a2a_node_positions_file": "route_graph_data/a2a_node_positions.json",
+    "processed_traffic_file": "traffic_flow_model_data/processed_hourly_traffic_flow.csv",
+    "scaler_file": "traffic_flow_model_data/traffic_flow_scaler.pkl",
+    "gru_model_file": "models/gru_traffic_model.keras",
+    "lstm_model_file": "models/lstm_traffic_model.keras",
+    "route_results_file": "route_results.csv"
+  },
+  "visual": {
+    "base_edge_color": "#384050",
+    "node_color": "#d8dee9",
+    "origin_color": "#4da3ff",
+    "destination_color": "#4cd964",
+    "route_color": "#ffb000",
+    "background_color": "#111827"
+  }
+}

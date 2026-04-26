@@ -4,29 +4,39 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import customtkinter as ctk
 import pandas as pd
-from route_engine import find_routes
 import random
+from route_engine import find_routes
+from config_loader import load_config, get_config_value
 
-ROUTE_GRAPH_FOLDER = Path("route_graph_data")
-SCATS_NODES_FILE = ROUTE_GRAPH_FOLDER / "scats_nodes.csv"
-SCATS_EDGES_FILE = ROUTE_GRAPH_FOLDER / "scats_edges_prepared.csv"
-DEFAULT_ORIGIN = 2000
-DEFAULT_DESTINATION = 3002
-DEFAULT_DATETIME = "2006-10-15 15:00:00"
-BASE_EDGE_COLOR = "#384050"
-NODE_COLOR = "#d8dee9"
-ORIGIN_COLOR = "#4da3ff"
-DESTINATION_COLOR = "#4cd964"
-ROUTE_COLOR = "#ffb000"
-BACKGROUND_COLOR = "#111827"
+CONFIG = load_config()
+SCATS_NODES_FILE = Path(get_config_value(CONFIG, ["paths", "scats_nodes_file"]))
+SCATS_EDGES_FILE = Path(get_config_value(CONFIG, ["paths", "scats_edges_file"]))
+DEFAULT_ORIGIN = int(get_config_value(CONFIG, ["gui_defaults", "origin_scats"], 2000))
+DEFAULT_DESTINATION = int(get_config_value(CONFIG, ["gui_defaults", "destination_scats"], 3002))
+DEFAULT_DATETIME = get_config_value(CONFIG, ["gui_defaults", "departure_datetime"], "2006-10-15 15:00:00")
+DEFAULT_MODEL_MODE = get_config_value(CONFIG, ["gui_defaults", "model_mode"], "GRU")
+DEFAULT_TOP_K = str(get_config_value(CONFIG, ["gui_defaults", "top_k_routes"], 5))
+DEFAULT_TOP_K_OPTIONS = [str(value) for value in get_config_value(CONFIG, ["gui_defaults", "top_k_options"], [1, 2, 3, 4, 5])]
+DEFAULT_SELECTED_ALGORITHMS = set(get_config_value(CONFIG, ["gui_defaults", "selected_algorithms"], ["bfs", "dfs", "gbfs", "astar", "cus1", "cus2"]))
+DEFAULT_CLICK_TARGET = get_config_value(CONFIG, ["gui_defaults", "click_target"], "Origin")
+DEFAULT_EDGE_COST_MODE = get_config_value(CONFIG, ["gui_defaults", "edge_cost_mode"], "route")
+WINDOW_GEOMETRY = get_config_value(CONFIG, ["gui_defaults", "window_geometry"], "1450x850")
+WINDOW_MIN_WIDTH = int(get_config_value(CONFIG, ["gui_defaults", "window_min_width"], 1200))
+WINDOW_MIN_HEIGHT = int(get_config_value(CONFIG, ["gui_defaults", "window_min_height"], 720))
+BASE_EDGE_COLOR = get_config_value(CONFIG, ["visual", "base_edge_color"], "#384050")
+NODE_COLOR = get_config_value(CONFIG, ["visual", "node_color"], "#d8dee9")
+ORIGIN_COLOR = get_config_value(CONFIG, ["visual", "origin_color"], "#4da3ff")
+DESTINATION_COLOR = get_config_value(CONFIG, ["visual", "destination_color"], "#4cd964")
+ROUTE_COLOR = get_config_value(CONFIG, ["visual", "route_color"], "#ffb000")
+BACKGROUND_COLOR = get_config_value(CONFIG, ["visual", "background_color"], "#111827")
 
 class TBRGSApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
         self.title("Traffic-Based Route Guidance System")
-        self.geometry("1450x850")
-        self.minsize(1200, 720)
+        self.geometry(WINDOW_GEOMETRY)
+        self.minsize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         self.nodes_df = self.load_nodes()
@@ -38,7 +48,7 @@ class TBRGSApp(ctk.CTk):
         self.current_path = []
         self.latest_results_by_model = {}
         self.current_route_model = None
-        self.edge_cost_mode = ctk.StringVar(value="route")
+        self.edge_cost_mode = ctk.StringVar(value=DEFAULT_EDGE_COST_MODE)
         self.node_xy_cache = {}
         self.map_zoom = 1.0
         self.map_pan_x = 0
@@ -145,9 +155,9 @@ class TBRGSApp(ctk.CTk):
         self.origin_var = ctk.StringVar(value=self.get_default_site_display(DEFAULT_ORIGIN))
         self.destination_var = ctk.StringVar(value=self.get_default_site_display(DEFAULT_DESTINATION))
         self.datetime_var = ctk.StringVar(value=DEFAULT_DATETIME)
-        self.model_var = ctk.StringVar(value="GRU")
-        self.top_k_var = ctk.StringVar(value="5")
-        self.click_target_var = ctk.StringVar(value="Origin")
+        self.model_var = ctk.StringVar(value=DEFAULT_MODEL_MODE)
+        self.top_k_var = ctk.StringVar(value=DEFAULT_TOP_K)
+        self.click_target_var = ctk.StringVar(value=DEFAULT_CLICK_TARGET)
 
         self.add_sidebar_label("Origin SCATS")
         self.origin_combo = ctk.CTkComboBox(self.sidebar,values=self.site_options,variable=self.origin_var,width=310, state="readonly")
@@ -166,7 +176,7 @@ class TBRGSApp(ctk.CTk):
         self.model_combo.pack(anchor="w", padx=20, pady=(0, 10))
         
         self.add_sidebar_label("Top-k routes per algorithm")
-        self.top_k_combo = ctk.CTkComboBox(self.sidebar, values=["1", "2", "3", "4", "5"], variable=self.top_k_var, width=310, state="readonly")
+        self.top_k_combo = ctk.CTkComboBox(self.sidebar, values=DEFAULT_TOP_K_OPTIONS, variable=self.top_k_var, width=310, state="readonly")
         self.top_k_combo.pack(anchor="w", padx=20, pady=(0, 16))
 
         self.add_sidebar_label("Algorithms to run")
@@ -184,7 +194,7 @@ class TBRGSApp(ctk.CTk):
         ]
 
         for index, (value, label) in enumerate(algorithms):
-            var = ctk.BooleanVar(value=True)
+            var = ctk.BooleanVar(value=value in DEFAULT_SELECTED_ALGORITHMS)
             self.algorithm_vars[value] = var
             checkbox = ctk.CTkCheckBox(algorithm_frame,text=label,variable=var)
             checkbox.grid(row=index // 2, column=index % 2, sticky="w", padx=12, pady=8)
@@ -205,9 +215,9 @@ class TBRGSApp(ctk.CTk):
         self.add_sidebar_label("Edge cost visibility")
         edge_cost_frame = ctk.CTkFrame(self.sidebar)
         edge_cost_frame.pack(anchor="w", padx=20, pady=(0, 14), fill="x")
-        self.show_all_costs_var = ctk.BooleanVar(value=False)
-        self.show_route_costs_var = ctk.BooleanVar(value=True)
-        self.hide_costs_var = ctk.BooleanVar(value=False)
+        self.show_all_costs_var = ctk.BooleanVar(value=DEFAULT_EDGE_COST_MODE == "all")
+        self.show_route_costs_var = ctk.BooleanVar(value=DEFAULT_EDGE_COST_MODE == "route")
+        self.hide_costs_var = ctk.BooleanVar(value=DEFAULT_EDGE_COST_MODE == "hide")
 
         self.show_all_costs_check = ctk.CTkCheckBox(edge_cost_frame,text="Show all edge costs",variable=self.show_all_costs_var,command=lambda: self.set_edge_cost_mode("all"))
         self.show_all_costs_check.pack(anchor="w", padx=12, pady=(8, 4))
@@ -638,7 +648,7 @@ class TBRGSApp(ctk.CTk):
         self.selected_route_var.set("No route yet")
         self.route_combo.configure(values=["No route yet"])
         self.algorithm_tree.delete(*self.algorithm_tree.get_children())
-        self.set_edge_cost_mode("route")
+        self.set_edge_cost_mode(DEFAULT_EDGE_COST_MODE)
         self.status_label.configure(text="Ready.")
         self.draw_map()
 

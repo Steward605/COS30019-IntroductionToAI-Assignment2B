@@ -11,19 +11,26 @@ from algorithms.dfs import depth_first_search
 from algorithms.gbfs import greedy_best_first_search
 from algorithms.cus1 import bs_search
 from algorithms.cus2 import ida_star_search
+from config_loader import load_config, get_config_value
 
-ROUTE_GRAPH_FOLDER = Path("route_graph_data")
-SCATS_NODES_FILE = ROUTE_GRAPH_FOLDER / "scats_nodes.csv"
-SCATS_EDGES_FILE = ROUTE_GRAPH_FOLDER / "scats_edges_prepared.csv"
-A2A_NODE_POSITIONS_FILE = ROUTE_GRAPH_FOLDER / "a2a_node_positions.json"
-PROCESSED_TRAFFIC_FILE = Path("traffic_flow_model_data/processed_hourly_traffic_flow.csv")
-SCALER_FILE = Path("traffic_flow_model_data/traffic_flow_scaler.pkl")
-MODEL_FILES = {"gru": Path("models/gru_traffic_model.keras"),"lstm": Path("models/lstm_traffic_model.keras")}
+CONFIG = load_config()
+
+SCATS_NODES_FILE = Path(get_config_value(CONFIG, ["paths", "scats_nodes_file"]))
+SCATS_EDGES_FILE = Path(get_config_value(CONFIG, ["paths", "scats_edges_file"]))
+A2A_NODE_POSITIONS_FILE = Path(get_config_value(CONFIG, ["paths", "a2a_node_positions_file"]))
+PROCESSED_TRAFFIC_FILE = Path(get_config_value(CONFIG, ["paths", "processed_traffic_file"]))
+SCALER_FILE = Path(get_config_value(CONFIG, ["paths", "scaler_file"]))
+MODEL_FILES = {
+    "gru": Path(get_config_value(CONFIG, ["paths", "gru_model_file"])),
+    "lstm": Path(get_config_value(CONFIG, ["paths", "lstm_model_file"]))
+}
 SUPPORTED_ALGORITHMS = ["bfs", "dfs", "gbfs", "astar", "cus1", "cus2"]
-FLOW_SOURCE = "destination"  # travel time from SCATS site A to B approximated using the hourly volume at SCATS site B, options: "destination", "start"
-OUTPUT_ROUTE_RESULTS_FILE = Path("route_results.csv")
-TOP_K_CANDIDATE_MULTIPLIER = 1
-MAX_TOP_K_ATTEMPTS = 25
+FLOW_SOURCE = get_config_value(CONFIG, ["route_engine", "flow_source"], "destination")
+OUTPUT_ROUTE_RESULTS_FILE = Path(get_config_value(CONFIG, ["paths", "route_results_file"], "route_results.csv"))
+TOP_K_CANDIDATE_MULTIPLIER = int(get_config_value(CONFIG, ["route_engine", "top_k_candidate_multiplier"], 1))
+MAX_TOP_K_ATTEMPTS = int(get_config_value(CONFIG, ["route_engine", "max_top_k_attempts"], 25))
+IS_CONGESTED = bool(get_config_value(CONFIG, ["travel_time", "is_congested"], False))
+INTERSECTION_DELAY_SECONDS = float(get_config_value(CONFIG, ["travel_time", "intersection_delay_seconds"], 30.0))
 
 # LOAD FILES
 # ============================================================
@@ -145,7 +152,7 @@ def build_edges_with_travel_time(edges_df, predicted_flows):
         if flow_site not in predicted_flows:
             raise KeyError(f"No predicted traffic flow found for SCATS site {flow_site}.")
         predicted_flow = predicted_flows[flow_site]
-        travel_time_minutes = calculate_travel_time_from_traffic_flow(predicted_flow=predicted_flow,distance_km=distance_km,is_congested=False)
+        travel_time_minutes = calculate_travel_time_from_traffic_flow(predicted_flow=predicted_flow,distance_km=distance_km,is_congested=IS_CONGESTED,intersection_delay_seconds=INTERSECTION_DELAY_SECONDS)
         rows.append({
             "start_scats": start_scats,
             "end_scats": end_scats,
