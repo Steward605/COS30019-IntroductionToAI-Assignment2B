@@ -10,43 +10,43 @@ After testing, the predictions are converted back into real vehicle counts using
 
 INITIAL METRICS (Epoch 1):
 ----------------------------------------------------------------------
-Training MSE (compressed scale):         0.0139 
-Training RMSE (compressed scale):        0.1177
-Training MAE (compressed scale):         0.0821
+Training MSE (compressed scale):         0.0100 
+Training RMSE (compressed scale):        0.0998
+Training MAE (compressed scale):         0.0706
   
-Validation MSE (compressed scale):       0.0057 
-Validation RMSE (compressed scale):      0.0754
-Validation MAE (compressed scale):       0.0522
+Validation MSE (compressed scale):       0.0053 
+Validation RMSE (compressed scale):      0.0731
+Validation MAE (compressed scale):       0.0524
 
 FINAL METRICS (Last Epoch):
 ----------------------------------------------------------------------
 Training MSE (compressed scale):         0.0011 
-Training RMSE (compressed scale):        0.0327
-Training MAE (compressed scale):         0.0239
+Training RMSE (compressed scale):        0.0331
+Training MAE (compressed scale):         0.0242
   
-Validation MSE (compressed scale):       0.0009 
-Validation RMSE (compressed scale):      0.0296
-Validation MAE (compressed scale):       0.0194
+Validation MSE (compressed scale):       0.0010 
+Validation RMSE (compressed scale):      0.0315
+Validation MAE (compressed scale):       0.0213
 
 BEST METRICS DURING TRAINING:
 ----------------------------------------------------------------------
-Best Validation MAE (compressed scale):  0.0188 (Achieved on Epoch 41)
-Best Validation MSE (compressed scale):  0.0008 
+Best Validation MAE (compressed scale):  0.0197 (Achieved on Epoch 35)
+Best Validation MSE (compressed scale):  0.0009 
 
 IMPROVEMENT METRICS:
 ----------------------------------------------------------------------
-MSE Reduction (compressed scale):        0.0128 
-RMSE Reduction (compressed scale):       0.0850
-MAE Reduction (compressed scale):        0.0582
+MSE Reduction (compressed scale):        0.0089 
+RMSE Reduction (compressed scale):       0.0667
+MAE Reduction (compressed scale):        0.0464
   
 OVERFITTING ANALYSIS:
 ----------------------------------------------------------------------
-Final MAE Gap (Val - Train, compressed scale): -0.0045
+Final MAE Gap (Val - Train, compressed scale): -0.0029
 Generalization Status:               EXCELLENT: Generalizing perfectly (Validation error is equal to or lower than training).
   
 REAL-WORLD TEST PERFORMANCE:
 ----------------------------------------------------------------------
-Test MAE:       110.02 vehicles
-Test RMSE:      162.51 vehicles
-Test R-Squared: 0.9749
+Test MAE:       116.03 vehicles
+Test RMSE:      171.42 vehicles
+Test R-Squared: 0.9721
 ======================================================================
