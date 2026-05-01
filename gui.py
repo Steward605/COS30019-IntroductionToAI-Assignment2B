@@ -5,15 +5,24 @@ from tkinter import ttk, messagebox
 import customtkinter as ctk
 import pandas as pd
 import random
-from route_engine import find_routes
+from route_engine import find_routes, normalize_departure_time
 from config_loader import load_config, get_config_value
 
 CONFIG = load_config()
 SCATS_NODES_FILE = Path(get_config_value(CONFIG, ["paths", "scats_nodes_file"]))
 SCATS_EDGES_FILE = Path(get_config_value(CONFIG, ["paths", "scats_edges_file"]))
+GUI_ROUTE_RESULTS_FILE = Path(get_config_value(CONFIG, ["paths", "gui_route_results_file"], "route_results.csv"))
 DEFAULT_ORIGIN = int(get_config_value(CONFIG, ["gui_defaults", "origin_scats"], 2000))
 DEFAULT_DESTINATION = int(get_config_value(CONFIG, ["gui_defaults", "destination_scats"], 3002))
-DEFAULT_DATETIME = get_config_value(CONFIG, ["gui_defaults", "departure_datetime"], "2006-10-15 15:00:00")
+DEFAULT_DEPARTURE_TIME = normalize_departure_time(get_config_value(CONFIG, ["gui_defaults", "departure_time"], get_config_value(CONFIG, ["gui_defaults", "departure_datetime"], "15:00:00")))
+DEFAULT_DEPARTURE_TIME_OPTIONS = [
+    normalize_departure_time(value)
+    for value in get_config_value(
+        CONFIG,
+        ["gui_defaults", "departure_time_options"],
+        [f"{hour:02d}:00:00" for hour in range(24)]
+    )
+]
 DEFAULT_MODEL_MODE = get_config_value(CONFIG, ["gui_defaults", "model_mode"], "GRU")
 DEFAULT_TOP_K = str(get_config_value(CONFIG, ["gui_defaults", "top_k_routes"], 5))
 DEFAULT_TOP_K_OPTIONS = [str(value) for value in get_config_value(CONFIG, ["gui_defaults", "top_k_options"], [1, 2, 3, 4, 5])]
@@ -154,7 +163,7 @@ class TBRGSApp(ctk.CTk):
 
         self.origin_var = ctk.StringVar(value=self.get_default_site_display(DEFAULT_ORIGIN))
         self.destination_var = ctk.StringVar(value=self.get_default_site_display(DEFAULT_DESTINATION))
-        self.datetime_var = ctk.StringVar(value=DEFAULT_DATETIME)
+        self.departure_time_var = ctk.StringVar(value=DEFAULT_DEPARTURE_TIME)
         self.model_var = ctk.StringVar(value=DEFAULT_MODEL_MODE)
         self.top_k_var = ctk.StringVar(value=DEFAULT_TOP_K)
         self.click_target_var = ctk.StringVar(value=DEFAULT_CLICK_TARGET)
@@ -167,12 +176,12 @@ class TBRGSApp(ctk.CTk):
         self.destination_combo = ctk.CTkComboBox(self.sidebar,values=self.site_options,variable=self.destination_var,width=310, state="readonly")
         self.destination_combo.pack(anchor="w", padx=20, pady=(0, 10))
 
-        self.add_sidebar_label("Departure datetime")
-        self.datetime_entry = ctk.CTkEntry(self.sidebar,textvariable=self.datetime_var,width=310,placeholder_text="YYYY-MM-DD HH:MM:SS")
-        self.datetime_entry.pack(anchor="w", padx=20, pady=(0, 10))
+        self.add_sidebar_label("Departure hour")
+        self.departure_time_combo = ctk.CTkComboBox(self.sidebar, values=DEFAULT_DEPARTURE_TIME_OPTIONS, variable=self.departure_time_var, width=310, state="readonly")
+        self.departure_time_combo.pack(anchor="w", padx=20, pady=(0, 10))
 
-        self.add_sidebar_label("Model mode")
-        self.model_combo = ctk.CTkComboBox(self.sidebar,values=["GRU", "LSTM", "RF", "Compare GRU + LSTM", "All"],variable=self.model_var,width=310, state="readonly")
+        self.add_sidebar_label("Model")
+        self.model_combo = ctk.CTkComboBox(self.sidebar, values=["GRU", "LSTM", "RF", "Compare GRU + LSTM", "All"], variable=self.model_var, width=310, state="readonly")
         self.model_combo.pack(anchor="w", padx=20, pady=(0, 10))
         
         self.add_sidebar_label("Top-k routes per algorithm")
@@ -184,14 +193,7 @@ class TBRGSApp(ctk.CTk):
 
         algorithm_frame = ctk.CTkFrame(self.sidebar)
         algorithm_frame.pack(anchor="w", padx=20, pady=(0, 14), fill="x")
-        algorithms = [
-            ("bfs", "BFS"),
-            ("dfs", "DFS"),
-            ("gbfs", "GBFS"),
-            ("astar", "A*"),
-            ("cus1", "CUS1"),
-            ("cus2", "CUS2")
-        ]
+        algorithms = [("bfs", "BFS"), ("dfs", "DFS"), ("gbfs", "GBFS"), ("astar", "A*"), ("cus1", "CUS1"), ("cus2", "CUS2")]
 
         for index, (value, label) in enumerate(algorithms):
             var = ctk.BooleanVar(value=value in DEFAULT_SELECTED_ALGORITHMS)
@@ -567,27 +569,28 @@ class TBRGSApp(ctk.CTk):
         try:
             origin = self.parse_site_selection(self.origin_var.get())
             destination = self.parse_site_selection(self.destination_var.get())
-            
+
             # Validation: Prevent same origin and destination
             if origin == destination:
                 messagebox.showerror("Invalid input", "Origin and Destination SCATS cannot be the same.")
                 return
 
-            # Validation: Catch bad datetime formats gracefully
-            departure_datetime = self.datetime_var.get().strip()
+            # Validation: GUI accepts departure time only, not date.
             try:
-                pd.to_datetime(departure_datetime)
-            except Exception:
-                messagebox.showerror("Invalid input", "Invalid datetime format.\n\nPlease use: YYYY-MM-DD HH:MM:SS\nExample: 2006-10-15 15:00:00")
+                departure_time = normalize_departure_time(self.departure_time_var.get())
+                self.departure_time_var.set(departure_time)
+            except Exception as error:
+                messagebox.showerror("Invalid input", "Invalid departure hour.\n\n" "Please choose a valid hour such as 15:00:00.\n\n" f"Details: {str(error)}")
                 return
+
             top_k = int(self.top_k_var.get())
             selected_algorithms = [algorithm_name for algorithm_name, variable in self.algorithm_vars.items() if variable.get()]
-            
+
             # Validation: Ensure at least one algorithm is checked
             if not selected_algorithms:
                 messagebox.showerror("Invalid input", "Please select at least one search algorithm to run.")
                 return
-                
+
             model_mode = self.model_var.get()
             if model_mode == "Compare GRU + LSTM":
                 model_types = ["gru", "lstm"]
@@ -598,18 +601,19 @@ class TBRGSApp(ctk.CTk):
         except Exception as error:
             messagebox.showerror("Unexpected Error", f"An unexpected error occurred: {str(error)}")
             return
+
         self.find_button.configure(state="disabled", text="Running...")
-        self.status_label.configure(text="Predicting traffic flow and running search algorithms...")
+        self.status_label.configure(text="Predicting traffic flow from selected time and running search algorithms...")
 
         # Route calculation may take a few seconds, so it runs in a worker thread.
-        worker = threading.Thread(target=self.run_route_search_worker,args=(origin, destination, departure_datetime, model_types, top_k, selected_algorithms),daemon=True)
+        worker = threading.Thread(target=self.run_route_search_worker, args=(origin, destination, departure_time, model_types, top_k, selected_algorithms), daemon=True)
         worker.start()
 
-    def run_route_search_worker(self, origin, destination, departure_datetime, model_types, top_k, selected_algorithms):
+    def run_route_search_worker(self, origin, destination, departure_time, model_types, top_k, selected_algorithms):
         try:
             results_by_model = {}
             for model_type in model_types:
-                results_by_model[model_type] = find_routes(origin_scats=origin,destination_scats=destination,departure_datetime=departure_datetime,model_type=model_type,top_k_routes=top_k,algorithm_names=selected_algorithms)
+                results_by_model[model_type] = find_routes(origin_scats=origin, destination_scats=destination, departure_time=departure_time, model_type=model_type, top_k_routes=top_k, algorithm_names=selected_algorithms)
             self.after(0, lambda: self.on_route_search_finished(results_by_model))
         except Exception as error:
             error_message = str(error)
@@ -617,10 +621,15 @@ class TBRGSApp(ctk.CTk):
 
     def on_route_search_finished(self, results_by_model):
         self.find_button.configure(state="normal", text="Find Routes")
-        self.status_label.configure(text="Route search complete.")
         self.latest_results_by_model = results_by_model
         self.populate_algorithm_results(results_by_model)
         self.update_route_selector(results_by_model)
+        try:
+            self.save_gui_route_results(results_by_model)
+            self.status_label.configure(text=f"Route search complete. Results saved to {GUI_ROUTE_RESULTS_FILE}.")
+        except Exception as error:
+            self.status_label.configure(text="Route search complete, but CSV export failed.")
+            messagebox.showwarning("CSV export failed", f"Routes were found, but results could not be saved to CSV:\n\n{str(error)}")
 
     def on_route_search_failed(self, error_message):
         self.find_button.configure(state="normal", text="Find Routes")
@@ -657,6 +666,48 @@ class TBRGSApp(ctk.CTk):
 
     # RESULT DISPLAY
     # ==============
+    def save_gui_route_results(self, results_by_model, output_file=GUI_ROUTE_RESULTS_FILE):
+        rows = []
+        for model_type, result in results_by_model.items():
+            origin_scats = result["origin_scats"]
+            destination_scats = result["destination_scats"]
+            departure_time = result["departure_time"]
+            algorithm_results = result["algorithm_results"]
+            for algorithm_name, algorithm_result in algorithm_results.items():
+                routes = algorithm_result["routes"]
+                if not routes:
+                    rows.append({
+                        "source": "GUI_ROUTE_SEARCH",
+                        "origin_scats": origin_scats,
+                        "destination_scats": destination_scats,
+                        "departure_time": departure_time,
+                        "model": model_type.upper(),
+                        "algorithm": algorithm_name.upper(),
+                        "route_number": "",
+                        "found": "No",
+                        "travel_time_minutes": "",
+                        "nodes_created": "",
+                        "path": "",
+                        "message": algorithm_result["message"]
+                    })
+                    continue
+                for route in routes:
+                    rows.append({
+                        "source": "GUI_ROUTE_SEARCH",
+                        "origin_scats": origin_scats,
+                        "destination_scats": destination_scats,
+                        "departure_time": departure_time,
+                        "model": model_type.upper(),
+                        "algorithm": algorithm_name.upper(),
+                        "route_number": route["route_number"],
+                        "found": "Yes",
+                        "travel_time_minutes": route["travel_time_minutes"],
+                        "nodes_created": route["nodes_created"],
+                        "path": self.format_path(route["path"]),
+                        "message": route["message"]
+                    })
+        pd.DataFrame(rows).to_csv(output_file, index=False, encoding="utf-8-sig")
+    
     def populate_algorithm_results(self, results_by_model):
         self.algorithm_tree.delete(*self.algorithm_tree.get_children())
         for model_type, result in results_by_model.items():
@@ -714,7 +765,7 @@ class TBRGSApp(ctk.CTk):
     def format_path(self, path):
         if not path:
             return "-"
-        return " → ".join(str(site) for site in path)
+        return " > ".join(str(site) for site in path)
 
     def format_minutes(self, value):
         if value is None:

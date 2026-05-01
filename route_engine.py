@@ -27,7 +27,7 @@ MODEL_FILES = {
 }
 SUPPORTED_ALGORITHMS = ["bfs", "dfs", "gbfs", "astar", "cus1", "cus2"]
 FLOW_SOURCE = get_config_value(CONFIG, ["route_engine", "flow_source"], "destination")
-OUTPUT_ROUTE_RESULTS_FILE = Path(get_config_value(CONFIG, ["paths", "route_results_file"], "route_results.csv"))
+OUTPUT_TEST_RESULTS_FILE = Path(get_config_value(CONFIG, ["paths", "test_results_file"], "test_results.csv"))
 TOP_K_CANDIDATE_MULTIPLIER = int(get_config_value(CONFIG, ["route_engine", "top_k_candidate_multiplier"], 1))
 MAX_TOP_K_ATTEMPTS = int(get_config_value(CONFIG, ["route_engine", "max_top_k_attempts"], 25))
 IS_CONGESTED = bool(get_config_value(CONFIG, ["travel_time", "is_congested"], False))
@@ -113,39 +113,91 @@ def load_model_and_scaler(model_type):
 
 # TRAFFIC FLOW PREDICTION
 # ============================================================
-def get_fallback_flow_for_site(traffic_df, scats_site, departure_hour):
-    site_data = traffic_df[traffic_df["scats_site_number"] == scats_site].copy()
-    if site_data.empty:
-        return float(traffic_df["traffic_flow"].median())
-    same_hour_data = site_data[site_data["timestamp"].dt.hour == departure_hour.hour]
+def normalize_departure_time(departure_time):
+    """
+    Converts a user-facing time input into HH:MM:SS.
+    Accepted formats:
+    - 15
+    - 15:00
+    - 15:00:00
+    - 2006-10-15 15:00:00  # kept for backwards compatibility
+    """
+    if departure_time is None:
+        raise ValueError("Departure time is required.")
+    time_text = str(departure_time).strip()
+
+    # Backwards compatibility: if old code passes a full datetime,
+    # use only the final time portion.
+    if " " in time_text:
+        time_text = time_text.split()[-1]
+        
+    time_parts = time_text.split(":")
+    if len(time_parts) == 1:
+        time_parts = [time_parts[0], "0", "0"]
+    elif len(time_parts) == 2:
+        time_parts = [time_parts[0], time_parts[1], "0"]
+    elif len(time_parts) != 3:
+        raise ValueError("Departure time must be in HH, HH:MM, or HH:MM:SS format.")
+    try:
+        hour = int(time_parts[0])
+        minute = int(time_parts[1])
+        second = int(time_parts[2])
+    except ValueError as error:
+        raise ValueError("Departure time must contain numeric hour, minute, and second values.") from error
+    if not 0 <= hour <= 23:
+        raise ValueError("Departure hour must be between 00 and 23.")
+    if not 0 <= minute <= 59:
+        raise ValueError("Departure minute must be between 00 and 59.")
+    if not 0 <= second <= 59:
+        raise ValueError("Departure second must be between 00 and 59.")
+    return f"{hour:02d}:{minute:02d}:{second:02d}"
+
+def get_departure_hour(departure_time):
+    normalized_time = normalize_departure_time(departure_time)
+    return int(normalized_time.split(":")[0])
+
+def get_median_flow_for_site_hour(traffic_df, site_data, hour):
+    same_hour_data = site_data[site_data["timestamp"].dt.hour == hour]
     if not same_hour_data.empty:
         return float(same_hour_data["traffic_flow"].median())
-    return float(site_data["traffic_flow"].median())
+    if not site_data.empty:
+        return float(site_data["traffic_flow"].median())
+    return float(traffic_df["traffic_flow"].median())
 
-def predict_flow_for_site(model, scaler, traffic_df, scats_site, departure_datetime):
-    departure_hour = pd.Timestamp(departure_datetime).floor("h")
+def build_time_only_previous_12_hour_sequence(traffic_df, scats_site, departure_time):
+    """
+    Builds the 12-input sequence required by GRU/LSTM/RF without using a user-entered date.
+    Basically for a selected departure time such as 15:00, this function creates the typical previous 12-hour traffic pattern for that SCATS site: 03:00, 04:00, ..., 14:00.
+    Each hour value is the median traffic flow for that clock-hour across the available October 2006 data.
+    """
+    departure_hour = get_departure_hour(departure_time)
     site_data = traffic_df[traffic_df["scats_site_number"] == scats_site].sort_values("timestamp")
-    previous_12_hours = site_data[(site_data["timestamp"] >= departure_hour - pd.Timedelta(hours=12)) &(site_data["timestamp"] < departure_hour)]
-    if len(previous_12_hours) < 12:
-        return get_fallback_flow_for_site(traffic_df, scats_site, departure_hour)
-    previous_values = previous_12_hours.tail(12)[["traffic_flow"]].values
-    scaled_values = scaler.transform(previous_values)
+    previous_flow_values = []
+    for hour_offset in range(12, 0, -1):
+        previous_hour = (departure_hour - hour_offset) % 24
+        median_flow = get_median_flow_for_site_hour(traffic_df=traffic_df, site_data=site_data, hour=previous_hour)
+        previous_flow_values.append(median_flow)
+    return pd.DataFrame({"traffic_flow": previous_flow_values})
 
-    # Changed to also support RF
+def predict_flow_for_site(model, scaler, traffic_df, scats_site, departure_time):
+    previous_values_df = build_time_only_previous_12_hour_sequence(traffic_df=traffic_df, scats_site=scats_site, departure_time=departure_time)
+    scaled_values = scaler.transform(previous_values_df)
+
+    # Support both neural-network models and Random Forest.
     if isinstance(model, tf.keras.Model):
         model_input = scaled_values.reshape(1, 12, 1)
         scaled_prediction = model.predict(model_input, verbose=0)
     else:
         model_input = scaled_values.reshape(1, -1)
         scaled_prediction = model.predict(model_input).reshape(-1, 1)
-
-    predicted_flow = scaler.inverse_transform(scaled_prediction)[0][0]
+    scaled_prediction_df = pd.DataFrame(scaled_prediction, columns=["traffic_flow"])
+    predicted_flow = scaler.inverse_transform(scaled_prediction_df)[0][0]
     return max(0.0, float(predicted_flow))
 
-def predict_flows_for_graph_sites(model, scaler, traffic_df, graph_sites, departure_datetime):
+def predict_flows_for_graph_sites(model, scaler, traffic_df, graph_sites, departure_time):
     predicted_flows = {}
     for scats_site in sorted(graph_sites):
-        predicted_flows[scats_site] = predict_flow_for_site(model=model,scaler=scaler,traffic_df=traffic_df,scats_site=scats_site,departure_datetime=departure_datetime)
+        predicted_flows[scats_site] = predict_flow_for_site(model=model, scaler=scaler, traffic_df=traffic_df, scats_site=scats_site, departure_time=departure_time)
     return predicted_flows
 
 # BUILD TRAVEL-TIME GRAPH
@@ -360,7 +412,7 @@ def run_all_assignment_2a_algorithms(graph,node_positions,origin_scats,destinati
 # OUTPUT HELPERS
 # ==============
 def format_path(path):
-    return " -> ".join(str(node) for node in path)
+    return " > ".join(str(node) for node in path)
 
 def get_location_lookup(nodes_df):
     if "location_description" not in nodes_df.columns:
@@ -381,15 +433,16 @@ def print_route_details(route, location_lookup):
         print(f"  {scats_site}: {location}")
     print()
 
-def save_route_results(algorithm_results):
+def save_test_results(algorithm_results, output_file=OUTPUT_TEST_RESULTS_FILE):
     rows = []
     for algorithm_name, algorithm_result in algorithm_results.items():
         routes = algorithm_result["routes"]
         if not routes:
             rows.append({
-                "source": "ASSIGNMENT_2A_ALGORITHM",
+                "source": "ROUTE_ENGINE_DIRECT_TEST",
                 "algorithm": algorithm_name.upper(),
                 "route_number": "",
+                "found": "No",
                 "path": "",
                 "travel_time_minutes": "",
                 "nodes_created": "",
@@ -398,43 +451,56 @@ def save_route_results(algorithm_results):
             continue
         for route in routes:
             rows.append({
-                "source": "ASSIGNMENT_2A_ALGORITHM",
+                "source": "ROUTE_ENGINE_DIRECT_TEST",
                 "algorithm": algorithm_name.upper(),
                 "route_number": route["route_number"],
+                "found": "Yes",
                 "path": format_path(route["path"]),
                 "travel_time_minutes": route["travel_time_minutes"],
                 "nodes_created": route["nodes_created"],
                 "message": route["message"]
             })
-    pd.DataFrame(rows).to_csv(OUTPUT_ROUTE_RESULTS_FILE, index=False)
+    pd.DataFrame(rows).to_csv(output_file, index=False)
 
 # This function is used by the GUI later.
-def find_routes(origin_scats, destination_scats, departure_datetime, model_type="gru", top_k_routes=5, algorithm_names=None):
+def find_routes(origin_scats, destination_scats, departure_time=None, departure_datetime=None, model_type="gru", top_k_routes=5, algorithm_names=None):
+    """
+    Finds routes using a user-inputted departure time only.
+    departure_time is the preferred input, for example "15:00:00".
+    departure_datetime is kept only for backwards compatibility with older code.
+    If departure_datetime is supplied, only its time portion is used.
+    """
+    if departure_time is None:
+        if departure_datetime is None:
+            departure_time = "15:00:00"
+        else:
+            departure_time = str(departure_datetime).strip().split()[-1]
+    departure_time = normalize_departure_time(departure_time)
     nodes_df = load_scats_nodes(SCATS_NODES_FILE)
     edges_df = load_scats_edges(SCATS_EDGES_FILE)
     node_positions = load_a2a_node_positions(A2A_NODE_POSITIONS_FILE)
     origin_scats = int(origin_scats)
     destination_scats = int(destination_scats)
     available_scats_sites = set(nodes_df["scats_site"].tolist())
-    
     if origin_scats not in available_scats_sites:
         raise ValueError(f"Origin SCATS {origin_scats} is not available in scats_nodes.csv.")
     if destination_scats not in available_scats_sites:
         raise ValueError(f"Destination SCATS {destination_scats} is not available in scats_nodes.csv.")
-    
+
     traffic_df = load_hourly_traffic_data(PROCESSED_TRAFFIC_FILE)
     model, scaler = load_model_and_scaler(model_type)
     graph_sites = set(edges_df["start_scats"].tolist()) | set(edges_df["end_scats"].tolist())
-    predicted_flows = predict_flows_for_graph_sites(model=model,scaler=scaler,traffic_df=traffic_df,graph_sites=graph_sites,departure_datetime=departure_datetime)
+    predicted_flows = predict_flows_for_graph_sites(model=model, scaler=scaler, traffic_df=traffic_df, graph_sites=graph_sites, departure_time=departure_time)
     edges_with_time_df = build_edges_with_travel_time(edges_df, predicted_flows)
     a2a_graph = build_a2a_travel_time_graph(edges_with_time_df)
-    algorithm_results = run_all_assignment_2a_algorithms(graph=a2a_graph,node_positions=node_positions,origin_scats=origin_scats,destination_scats=destination_scats,top_k_routes=top_k_routes,algorithm_names=algorithm_names)
+    algorithm_results = run_all_assignment_2a_algorithms(graph=a2a_graph, node_positions=node_positions, origin_scats=origin_scats, destination_scats=destination_scats, top_k_routes=top_k_routes, algorithm_names=algorithm_names)
     location_lookup = get_location_lookup(nodes_df)
-
     return {
         "origin_scats": origin_scats,
         "destination_scats": destination_scats,
-        "departure_datetime": departure_datetime,
+        "departure_time": departure_time,
+        "departure_datetime": None,
+        "prediction_input_mode": "time_only_median_previous_12_hours",
         "model_type": model_type,
         "algorithm_results": algorithm_results,
         "location_lookup": location_lookup,
@@ -443,17 +509,19 @@ def find_routes(origin_scats, destination_scats, departure_datetime, model_type=
 
 # This is only for testing route_engine.py directly in the terminal.
 def main():
-    result = find_routes(origin_scats=2000,destination_scats=3002,departure_datetime="2006-10-15 15:00:00",model_type="gru",top_k_routes=5)
+    result = find_routes(origin_scats=2000, destination_scats=3002, departure_time="15:00:00", model_type="gru", top_k_routes=5)
+
     print()
     print("========== ROUTE ENGINE RESULT ==========")
     print(f"Model used: {result['model_type'].upper()}")
     print(f"Origin SCATS: {result['origin_scats']}")
     print(f"Destination SCATS: {result['destination_scats']}")
-    print(f"Departure datetime: {result['departure_datetime']}")
+    print(f"Departure time: {result['departure_time']}")
+    print(f"Prediction input mode: {result['prediction_input_mode']}")
     print()
     print("Assignment 2A top-k algorithm results:")
-    algorithm_results = result["algorithm_results"]
 
+    algorithm_results = result["algorithm_results"]
     for algorithm_name, algorithm_result in algorithm_results.items():
         print()
         print(f"{algorithm_name.upper()} results:")
@@ -465,10 +533,9 @@ def main():
             print(f"Path: {format_path(route['path'])}")
             print(f"Estimated travel time: {route['travel_time_minutes']:.2f} minutes")
             print(f"Nodes created: {route['nodes_created']}")
-    save_route_results(algorithm_results)
-
+    save_test_results(algorithm_results)
     print()
-    print(f"Route results saved to: {OUTPUT_ROUTE_RESULTS_FILE}")
+    print(f"Route results saved to: {OUTPUT_TEST_RESULTS_FILE}")
 
 if __name__ == "__main__":
     main()
