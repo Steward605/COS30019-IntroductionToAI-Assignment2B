@@ -34,7 +34,7 @@ sys.stdout = Logger("logs/lstm_full_terminal_output.txt")
 
 # LOAD THE PROCESSED DATA
 # ============================================================
-print("Loading data...")
+print("Loading data for LSTM Model...")
 data = np.load('traffic_flow_model_data/traffic_flow_model_input_sequences.npz')
 X_train = data['train_inputs']
 y_train = data['train_targets']

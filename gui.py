@@ -172,7 +172,7 @@ class TBRGSApp(ctk.CTk):
         self.datetime_entry.pack(anchor="w", padx=20, pady=(0, 10))
 
         self.add_sidebar_label("Model mode")
-        self.model_combo = ctk.CTkComboBox(self.sidebar,values=["GRU", "LSTM", "Compare GRU + LSTM"],variable=self.model_var,width=310, state="readonly")
+        self.model_combo = ctk.CTkComboBox(self.sidebar,values=["GRU", "LSTM", "RF", "Compare GRU + LSTM", "All"],variable=self.model_var,width=310, state="readonly")
         self.model_combo.pack(anchor="w", padx=20, pady=(0, 10))
         
         self.add_sidebar_label("Top-k routes per algorithm")
@@ -591,6 +591,8 @@ class TBRGSApp(ctk.CTk):
             model_mode = self.model_var.get()
             if model_mode == "Compare GRU + LSTM":
                 model_types = ["gru", "lstm"]
+            elif model_mode == "All":
+                model_types = ["gru", "lstm", "rf"]
             else:
                 model_types = [model_mode.lower()]
         except Exception as error:
@@ -610,7 +612,8 @@ class TBRGSApp(ctk.CTk):
                 results_by_model[model_type] = find_routes(origin_scats=origin,destination_scats=destination,departure_datetime=departure_datetime,model_type=model_type,top_k_routes=top_k,algorithm_names=selected_algorithms)
             self.after(0, lambda: self.on_route_search_finished(results_by_model))
         except Exception as error:
-            self.after(0, lambda: self.on_route_search_failed(str(error)))
+            error_message = str(error)
+            self.after(0, lambda: self.on_route_search_failed(str(error_message)))
 
     def on_route_search_finished(self, results_by_model):
         self.find_button.configure(state="normal", text="Find Routes")

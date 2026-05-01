@@ -22,7 +22,8 @@ PROCESSED_TRAFFIC_FILE = Path(get_config_value(CONFIG, ["paths", "processed_traf
 SCALER_FILE = Path(get_config_value(CONFIG, ["paths", "scaler_file"]))
 MODEL_FILES = {
     "gru": Path(get_config_value(CONFIG, ["paths", "gru_model_file"])),
-    "lstm": Path(get_config_value(CONFIG, ["paths", "lstm_model_file"]))
+    "lstm": Path(get_config_value(CONFIG, ["paths", "lstm_model_file"])),
+    "rf": Path(get_config_value(CONFIG, ["paths", "rf_model_file"]))
 }
 SUPPORTED_ALGORITHMS = ["bfs", "dfs", "gbfs", "astar", "cus1", "cus2"]
 FLOW_SOURCE = get_config_value(CONFIG, ["route_engine", "flow_source"], "destination")
@@ -98,7 +99,14 @@ def load_model_and_scaler(model_type):
         raise FileNotFoundError(f"Model file not found: {model_file}. Run the training script first.")
     if not SCALER_FILE.exists():
         raise FileNotFoundError(f"Scaler file not found: {SCALER_FILE}. Run data-process.py first.")
-    model = tf.keras.models.load_model(model_file, compile=False)
+
+    # Different loading for RF
+    if model_type == "rf":
+        with open(model_file, "rb") as f:
+            model = pickle.load(f)
+    else:
+        model = tf.keras.models.load_model(model_file, compile=False)
+
     with open(SCALER_FILE, "rb") as file:
         scaler = pickle.load(file)
     return model, scaler
@@ -122,8 +130,15 @@ def predict_flow_for_site(model, scaler, traffic_df, scats_site, departure_datet
         return get_fallback_flow_for_site(traffic_df, scats_site, departure_hour)
     previous_values = previous_12_hours.tail(12)[["traffic_flow"]].values
     scaled_values = scaler.transform(previous_values)
-    model_input = scaled_values.reshape(1, 12, 1)
-    scaled_prediction = model.predict(model_input, verbose=0)
+
+    # Changed to also support RF
+    if isinstance(model, tf.keras.Model):
+        model_input = scaled_values.reshape(1, 12, 1)
+        scaled_prediction = model.predict(model_input, verbose=0)
+    else:
+        model_input = scaled_values.reshape(1, -1)
+        scaled_prediction = model.predict(model_input).reshape(-1, 1)
+
     predicted_flow = scaler.inverse_transform(scaled_prediction)[0][0]
     return max(0.0, float(predicted_flow))
 

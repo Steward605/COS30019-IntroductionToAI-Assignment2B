@@ -31,6 +31,7 @@
     "scaler_file": "traffic_flow_model_data/traffic_flow_scaler.pkl",
     "gru_model_file": "models/gru_traffic_model.keras",
     "lstm_model_file": "models/lstm_traffic_model.keras",
+    "rf_model_file": "models/random_forest_model.pkl",
     "route_results_file": "route_results.csv"
   },
   "visual": {
