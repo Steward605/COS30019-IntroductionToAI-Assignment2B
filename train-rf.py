@@ -112,6 +112,34 @@ parameter_options = [
         "max_depth": 20,
         "min_samples_split": 2,
         "min_samples_leaf": 2
+    },
+    {
+        "name": "RF_500_depth_20",
+        "n_estimators": 500,
+        "max_depth": 20,
+        "min_samples_split": 2,
+        "min_samples_leaf": 1
+    },
+    {
+        "name": "RF_200_full_depth", 
+        "n_estimators": 200, 
+        "max_depth": None, 
+        "min_samples_split": 2, 
+        "min_samples_leaf": 1
+    },
+    {
+        "name": "RF_200_depth_20_split5", 
+        "n_estimators": 200, 
+        "max_depth": 20, 
+        "min_samples_split": 5, 
+        "min_samples_leaf": 1
+    },
+    {"name": "RF_200_depth_20_sqrt", 
+     "n_estimators": 200, 
+     "max_depth": 20, 
+     "min_samples_split": 2, 
+     "min_samples_leaf": 1, 
+     "max_features": "sqrt"
     }
 ]
 
@@ -125,6 +153,7 @@ for params in parameter_options:
         max_depth=params["max_depth"],
         min_samples_split=params["min_samples_split"],
         min_samples_leaf=params["min_samples_leaf"],
+        max_features=params.get("max_features", 1.0), 
         random_state=42,
         n_jobs=-1
     )
