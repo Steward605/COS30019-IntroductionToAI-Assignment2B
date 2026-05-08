@@ -57,6 +57,7 @@ class TBRGSApp(ctk.CTk):
         self.current_path = []
         self.latest_results_by_model = {}
         self.current_route_model = None
+        self.selected_node_info = None
         self.edge_cost_mode = ctk.StringVar(value=DEFAULT_EDGE_COST_MODE)
         self.node_xy_cache = {}
         self.map_zoom = 1.0
@@ -328,6 +329,7 @@ class TBRGSApp(ctk.CTk):
         self.draw_edge_costs(width, height)
         self.draw_nodes(width, height)
         self.draw_map_legend(width, height)
+        self.draw_node_info_panel(width, height)
 
     def draw_base_edges(self, width, height):
         drawn_edges = set()
@@ -409,6 +411,28 @@ class TBRGSApp(ctk.CTk):
         self.draw_legend_item(x + 14, y + 34, ORIGIN_COLOR, "Origin")
         self.draw_legend_item(x + 95, y + 34, DESTINATION_COLOR, "Destination")
         self.draw_legend_item(x + 14, y + 56, ROUTE_COLOR, "Highlighted route")
+    
+    # Node Info Panel
+    def draw_node_info_panel(self, width, height):
+        if self.selected_node_info is None:
+            return
+        info = self.selected_node_info
+        x1 = width - 300
+        y1 = 20
+        x2 = width - 20
+        y2 = 200
+        self.canvas.create_rectangle(x1, y1, x2, y2, fill="#1f2937", outline="#4b5563", width=2)
+        title = "Intersection Info"
+        self.canvas.create_text(x1 + 12, y1 + 15, text=title, fill="#f9fafb", font=("Segoe UI", 11, "bold"), anchor="w")
+        connected_text = ", ".join(str(node) for node in info["connected_nodes"])
+        text = (
+            f"SCATS Site: {info['site']}\n\n"
+            f"Latitude : {info['latitude']:.6f}\n"
+            f"Longitude: {info['longitude']:.6f}\n\n"
+            f"Connected Nodes:\n"
+            f"{connected_text}"
+        )
+        self.canvas.create_text(x1 + 12,y1 + 40,text=text,fill="#e5e7eb",font=("Consolas", 10),anchor="nw",width=250)
 
     def draw_legend_item(self, x, y, color, text):
         self.canvas.create_oval(x, y - 5, x + 10, y + 5, fill=color, outline="")
@@ -492,8 +516,12 @@ class TBRGSApp(ctk.CTk):
     def on_map_click(self, event):
         nearest_site = self.get_nearest_site(event.x, event.y)
         if nearest_site is None:
+            self.selected_node_info = None
+            self.draw_map()
             return
         display_value = self.site_display_lookup[nearest_site]
+        # Show Node Info
+        self.show_node_info(nearest_site)
         if self.click_target_var.get() == "Origin":
             self.origin_var.set(display_value)
         else:
@@ -564,6 +592,35 @@ class TBRGSApp(ctk.CTk):
         if nearest_distance <= 18:
             return nearest_site
         return None
+    
+    # Getting Node Information Function
+    def show_node_info(self, site):
+        if site not in self.node_lookup:
+            return
+        node_data = self.node_lookup[site]
+        latitude = node_data["latitude"]
+        longitude = node_data["longitude"]
+
+        # Connected Nodes
+        connected_nodes = set()
+        for _, row in self.edges_df.iterrows():
+            start = int(row["start_scats"])
+            end = int(row["end_scats"])
+
+            if start == site:
+                connected_nodes.add(end)
+            elif end == site:
+                connected_nodes.add(start)
+        connected_nodes = sorted(list(connected_nodes))
+
+        self.selected_node_info = {
+            "site": site,
+            "latitude": latitude,
+            "longitude": longitude,
+            "connected_nodes": connected_nodes
+        }
+
+        self.draw_map()
 
     def on_find_routes(self):
         try:
