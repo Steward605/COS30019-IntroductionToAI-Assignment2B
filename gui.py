@@ -427,8 +427,8 @@ class TBRGSApp(ctk.CTk):
         connected_text = ", ".join(str(node) for node in info["connected_nodes"])
         text = (
             f"SCATS Site: {info['site']}\n\n"
-            f"Latitude : {info['latitude']:.6f}\n"
-            f"Longitude: {info['longitude']:.6f}\n\n"
+            f"X (Longitude): {info['longitude']:.6f}\n"
+            f"Y (Latitude) : {info['latitude']:.6f}\n\n"
             f"Connected Nodes:\n"
             f"{connected_text}"
         )
