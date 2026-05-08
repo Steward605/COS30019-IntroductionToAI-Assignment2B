@@ -3,7 +3,6 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Input, LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping, CSVLogger
-from tensorflow.keras.callbacks import ReduceLROnPlateau
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, r2_score
 import pickle
@@ -53,14 +52,8 @@ model = Sequential()
 # The Input Layer: Tells the model to read the shape directly from the data
 model.add(Input(shape=X_train.shape[1:]))
 
-# The LSTM Layer: '128' is the number of LSTM cells inside this layer. Note: NUMBER IS TWEAKABLE (32,64,128) TO SEE WHAT PERFORMS BETTER LTR
-model.add(LSTM(128, return_sequences=True))
-
-# Dropout Layer: randomly ignores 20% of the previous layer's outputs during training to reduce overfitting
-model.add(Dropout(0.2))
-
-# Second Layer
-model.add(LSTM(64)) 
+# The LSTM Layer: '64' is the number of LSTM cells inside this layer. Note: NUMBER IS TWEAKABLE (32,64,128) TO SEE WHAT PERFORMS BETTER LTR
+model.add(LSTM(64))
 
 # Dropout Layer: randomly ignores 20% of the previous layer's outputs during training to reduce overfitting
 model.add(Dropout(0.2))
@@ -76,8 +69,6 @@ model.summary()
 # optimizer='adam' is the best all-rounder for adjusting parameters for our situation.
 # "According to Kingma et al., 2014, the method is "computationally efficient, has little memory requirement, invariant to diagonal rescaling of gradients, and is well suited for problems that are large in terms of data/parameters"." - Tensorflow
 model.compile(optimizer='adam', loss='mse', metrics=[tf.keras.metrics.RootMeanSquaredError(name="rmse")])
-# During training, if the validation loss stops improving for 5 epochs in a row (patience=5), it cuts the learning rate in half (factor=0.5). This lets the model take smaller, more careful steps when it's close to the best solution, instead of overshooting it. It keeps doing this until the learning rate hits the minimum floor (min_lr=1e-6).
-reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-6)
 print("\nStarting training...")
 
 # Custom logger to force normal decimal notation when printing all important training metrics
@@ -96,8 +87,8 @@ class DecimalLogger(tf.keras.callbacks.Callback):
             f"val_rmse: {logs.get('val_rmse', 0):.6f}"
         )
 
-# If model stops improving on the validation test for 10 epochs in a row, automatically stops training to not waste time.
-early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+# If model stops improving on the validation test for 5 epochs in a row, automatically stops training to not waste time.
+early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
 # Create a logger that saves the epoch results to a CSV file
 csv_logger = CSVLogger('logs/lstm_training_log.csv', append=False)
@@ -107,10 +98,10 @@ csv_logger = CSVLogger('logs/lstm_training_log.csv', append=False)
 history = model.fit(
     X_train, y_train,
     validation_data=(X_val, y_val),
-    epochs=100,
-    batch_size=64,
+    epochs=50,
+    batch_size=32,
     verbose=0,
-    callbacks=[early_stop, csv_logger, DecimalLogger("LSTM"), reduce_lr]
+    callbacks=[early_stop, csv_logger, DecimalLogger("LSTM")]
 )
 
 # EVALUATE ON THE TEST DATA

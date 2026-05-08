@@ -3,7 +3,6 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Input, GRU, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping, CSVLogger
-from tensorflow.keras.callbacks import ReduceLROnPlateau
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, r2_score
 import pickle
@@ -50,14 +49,10 @@ print(f"Training data shape: {X_train.shape}")
 model = Sequential()
 model.add(Input(shape=X_train.shape[1:]))
 
-# The GRU Layer: We use 128 cells to match the LSTM fairly
-model.add(GRU(128, return_sequences=True)) 
+# The GRU Layer: We use 64 cells to match the LSTM fairly
+model.add(GRU(64)) 
 
 # Dropout Layer: randomly ignores 20% of the previous layer's outputs during training to reduce overfitting
-model.add(Dropout(0.2))
-
-model.add(GRU(64))
-
 model.add(Dropout(0.2))
 
 model.add(Dense(1))
@@ -86,10 +81,8 @@ class DecimalLogger(tf.keras.callbacks.Callback):
             f"val_rmse: {logs.get('val_rmse', 0):.6f}"
         )
 
-# If model stops improving on the validation test for 10 epochs in a row, automatically stops training to not waste time.
-early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-
-reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-6)
+# If model stops improving on the validation test for 5 epochs in a row, automatically stops training to not waste time.
+early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
 # Save the GRU epoch results to its own CSV file
 csv_logger = CSVLogger('logs/gru_training_log.csv', append=False)
@@ -97,10 +90,10 @@ csv_logger = CSVLogger('logs/gru_training_log.csv', append=False)
 history = model.fit(
     X_train, y_train,
     validation_data=(X_val, y_val),
-    epochs=100,
-    batch_size=64,
+    epochs=50,
+    batch_size=32,
     verbose=0,
-    callbacks=[early_stop, csv_logger, DecimalLogger("GRU"), reduce_lr]
+    callbacks=[early_stop, csv_logger, DecimalLogger("GRU")]
 )
 
 # EVALUATE AND SAVE
