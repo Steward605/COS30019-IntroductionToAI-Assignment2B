@@ -4,15 +4,15 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, r2_score
 
 # DIRECTORY MANAGEMENT & LOGGING
-# ===================================
+# ==============================
 os.makedirs("logs", exist_ok=True)
 os.makedirs("models", exist_ok=True)
 
 # LOGGER
-# ===================================
+# ======
 class Logger(object):
     def __init__(self, filename):
         self.terminal = sys.stdout
@@ -29,7 +29,7 @@ class Logger(object):
 sys.stdout = Logger("logs/rf_full_terminal_output.txt")
 
 # LOAD THE PROCESSED DATA
-# ============================================================
+# =======================
 print("Loading data for Random Forest Model...")
 
 data = np.load("traffic_flow_model_data/traffic_flow_model_input_sequences.npz")
@@ -53,29 +53,28 @@ print(f"Validation input shape after flattening: {X_val.shape}")
 print(f"Test input shape after flattening: {X_test.shape}")
 
 # LOAD SCALER
-# ============================================================
+# ===========
 with open("traffic_flow_model_data/traffic_flow_scaler.pkl", "rb") as f:
     scaler = pickle.load(f)
 
+normalization_factor = float(scaler.data_range_[0])
+
 # HELPER FUNCTIONS
-# ============================================================
-def calculate_scaled_metrics(actual_scaled, predicted_scaled):
-    mae_scaled = mean_absolute_error(actual_scaled, predicted_scaled)
-    rmse_scaled = np.sqrt(mean_squared_error(actual_scaled, predicted_scaled))
-    return mae_scaled, rmse_scaled
+# ================
+def calculate_scaled_rmse(actual_scaled, predicted_scaled):
+    return np.sqrt(mean_squared_error(actual_scaled, predicted_scaled))
 
 def calculate_real_metrics(actual_scaled, predicted_scaled):
     real_actuals = scaler.inverse_transform(actual_scaled.reshape(-1, 1))
     real_predictions = scaler.inverse_transform(predicted_scaled.reshape(-1, 1))
 
-    mae = mean_absolute_error(real_actuals, real_predictions)
     rmse = np.sqrt(mean_squared_error(real_actuals, real_predictions))
     r2 = r2_score(real_actuals, real_predictions)
 
-    return real_actuals, real_predictions, mae, rmse, r2
+    return real_actuals, real_predictions, rmse, r2
 
 # VALIDATION-BASED PARAMETER TESTING
-# ============================================================
+# ==================================
 print("\nTesting Random Forest parameter settings using the validation set...")
 
 parameter_options = [
@@ -134,27 +133,29 @@ for params in parameter_options:
 
     val_predictions = candidate_model.predict(X_val)
 
-    val_mae_scaled, val_rmse_scaled = calculate_scaled_metrics(y_val, val_predictions)
-    _, _, val_mae, val_rmse, val_r2 = calculate_real_metrics(y_val, val_predictions)
+    val_rmse_scaled = calculate_scaled_rmse(y_val, val_predictions)
+    _, _, val_rmse, val_r2 = calculate_real_metrics(y_val, val_predictions)
+
+    val_nrmse = val_rmse / normalization_factor
+    val_nrmse_percentage = val_nrmse * 100
 
     validation_results.append({
         "params": params,
         "model": candidate_model,
-        "val_mae_scaled": val_mae_scaled,
         "val_rmse_scaled": val_rmse_scaled,
-        "val_mae": val_mae,
         "val_rmse": val_rmse,
+        "val_nrmse": val_nrmse,
+        "val_nrmse_percentage": val_nrmse_percentage,
         "val_r2": val_r2
     })
 
-    print(f"Validation MAE (compressed scale):  {val_mae_scaled:.6f}")
-    print(f"Validation RMSE (compressed scale): {val_rmse_scaled:.6f}")
-    print(f"Validation MAE:                    {val_mae:.2f} vehicles")
-    print(f"Validation RMSE:                   {val_rmse:.2f} vehicles")
-    print(f"Validation R-Squared:              {val_r2:.4f}")
+    print(f"Validation RMSE / NRMSE (compressed scale): {val_rmse_scaled:.6f}")
+    print(f"Validation RMSE:                            {val_rmse:.2f} vehicles")
+    print(f"Validation NRMSE:                           {val_nrmse:.6f} ({val_nrmse_percentage:.2f}%)")
+    print(f"Validation R-Squared:                       {val_r2:.4f}")
 
-# Select the model with the lowest validation MAE.
-best_result = min(validation_results, key=lambda result: result["val_mae"])
+# Select the model with the lowest validation RMSE.
+best_result = min(validation_results, key=lambda result: result["val_rmse"])
 best_params = best_result["params"]
 model = best_result["model"]
 
@@ -164,39 +165,41 @@ print(f"Number of trees: {best_params['n_estimators']}")
 print(f"Max depth: {best_params['max_depth']}")
 print(f"Min samples split: {best_params['min_samples_split']}")
 print(f"Min samples leaf: {best_params['min_samples_leaf']}")
-print(f"Best validation MAE: {best_result['val_mae']:.2f} vehicles")
 print(f"Best validation RMSE: {best_result['val_rmse']:.2f} vehicles")
+print(f"Best validation NRMSE: {best_result['val_nrmse']:.6f} ({best_result['val_nrmse_percentage']:.2f}%)")
 print(f"Best validation R-Squared: {best_result['val_r2']:.4f}")
 print("----------------------------------------")
 
 # FINAL TEST EVALUATION
-# ============================================================
+# =====================
 print("\nEvaluating selected Random Forest model on test data...")
 
 test_predictions = model.predict(X_test)
 
-test_mae_scaled, test_rmse_scaled = calculate_scaled_metrics(y_test, test_predictions)
-real_actuals, real_predictions, test_mae, test_rmse, test_r2 = calculate_real_metrics(y_test, test_predictions)
+test_rmse_scaled = calculate_scaled_rmse(y_test, test_predictions)
+real_actuals, real_predictions, test_rmse, test_r2 = calculate_real_metrics(y_test, test_predictions)
 
-print(f"Test MAE (compressed scale):  {test_mae_scaled:.6f}")
-print(f"Test RMSE (compressed scale): {test_rmse_scaled:.6f}")
+test_nrmse = test_rmse / normalization_factor
+test_nrmse_percentage = test_nrmse * 100
+
+print(f"Test RMSE / NRMSE (compressed scale): {test_rmse_scaled:.6f}")
 
 print("\n--- Random Forest Performance Report ---")
-print(f"Mean Absolute Error (MAE): {test_mae:.2f} vehicles")
 print(f"Root Mean Squared Error (RMSE): {test_rmse:.2f} vehicles")
+print(f"Normalization Factor: {normalization_factor:.2f} vehicles")
+print(f"Normalized RMSE (NRMSE): {test_nrmse:.6f} ({test_nrmse_percentage:.2f}%)")
 print(f"R-Squared Score: {test_r2:.4f}")
 print("----------------------------------------")
 
 # SAVE THE TRAINED MODEL
-# ============================================================
+# ======================
 with open("models/random_forest_model.pkl", "wb") as f:
     pickle.dump(model, f)
 
 print("Model saved to models/random_forest_model.pkl")
 
 # PLOT ACTUAL VS PREDICTED TRAFFIC
-# ============================================================
-plt.figure(figsize=(12, 5))
+# ================================
 plt.plot(real_actuals[:150], label="Actual Traffic", alpha=0.6)
 plt.plot(real_predictions[:150], label="Random Forest Prediction", linestyle="--")
 plt.title("Traffic Flow: Actual vs Random Forest Predicted")
@@ -210,7 +213,7 @@ print("Evaluation plot saved to logs/rf_evaluation_plot.png")
 plt.show()
 
 # GENERATE TRAINING SUMMARY REPORT
-# ============================================================
+# ================================
 print("\nGenerating Random Forest Summary...")
 
 validation_table_lines = []
@@ -219,8 +222,8 @@ for result in validation_results:
     params = result["params"]
     line = (
         f"{params['name']}: "
-        f"Validation MAE = {result['val_mae']:.2f} vehicles, "
         f"Validation RMSE = {result['val_rmse']:.2f} vehicles, "
+        f"Validation NRMSE = {result['val_nrmse']:.6f} ({result['val_nrmse_percentage']:.2f}%), "
         f"Validation R-Squared = {result['val_r2']:.4f}"
     )
     validation_table_lines.append(line)
@@ -257,15 +260,19 @@ Min Samples Leaf: {best_params['min_samples_leaf']}
 
 VALIDATION PERFORMANCE:
 ----------------------------------------
-Validation MAE:       {best_result['val_mae']:.2f} vehicles
 Validation RMSE:      {best_result['val_rmse']:.2f} vehicles
+Normalization Factor: {normalization_factor:.2f} vehicles
+Validation NRMSE:     {best_result['val_nrmse']:.6f}
+Validation NRMSE %:   {best_result['val_nrmse_percentage']:.2f}%
 Validation R-Squared: {best_result['val_r2']:.4f}
 
 REAL-WORLD TEST PERFORMANCE:
 ----------------------------------------
-Test MAE:       {test_mae:.2f} vehicles
-Test RMSE:      {test_rmse:.2f} vehicles
-Test R-Squared: {test_r2:.4f}
+Test RMSE:                 {test_rmse:.2f} vehicles
+Normalization Factor:      {normalization_factor:.2f} vehicles
+Test NRMSE:                {test_nrmse:.6f}
+Test NRMSE Percentage:     {test_nrmse_percentage:.2f}%
+Test R-Squared:            {test_r2:.4f}
 
 NOTES:
 ----------------------------------------

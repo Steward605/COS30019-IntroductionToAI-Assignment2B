@@ -4,7 +4,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Input, LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping, CSVLogger
 import matplotlib.pyplot as plt
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, r2_score
 import pickle
 import sys
 import os
@@ -68,7 +68,7 @@ model.summary()
 # ==============================================
 # optimizer='adam' is the best all-rounder for adjusting parameters for our situation.
 # "According to Kingma et al., 2014, the method is "computationally efficient, has little memory requirement, invariant to diagonal rescaling of gradients, and is well suited for problems that are large in terms of data/parameters"." - Tensorflow
-model.compile(optimizer='adam', loss='mse', metrics=['mae', tf.keras.metrics.RootMeanSquaredError(name='rmse')])
+model.compile(optimizer='adam', loss='mse', metrics=[tf.keras.metrics.RootMeanSquaredError(name="rmse")])
 print("\nStarting training...")
 
 # Custom logger to force normal decimal notation when printing all important training metrics
@@ -76,15 +76,14 @@ class DecimalLogger(tf.keras.callbacks.Callback):
     def __init__(self, model_name):
         super().__init__()
         self.model_name = model_name
+
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
         print(
             f"Epoch {epoch + 1:02d} - "
             f"loss: {logs.get('loss', 0):.6f} - "
-            f"mae: {logs.get('mae', 0):.6f} - "
             f"rmse: {logs.get('rmse', 0):.6f} - "
             f"val_loss: {logs.get('val_loss', 0):.6f} - "
-            f"val_mae: {logs.get('val_mae', 0):.6f} - "
             f"val_rmse: {logs.get('val_rmse', 0):.6f}"
         )
 
@@ -107,11 +106,10 @@ history = model.fit(
 
 # EVALUATE ON THE TEST DATA
 # ==============================================
-print("\nEvaluating on Test Data...")
-test_mse, test_mae, test_rmse = model.evaluate(X_test, y_test, verbose=0)
-print(f"Test MSE (compressed scale):  {test_mse:.6f}")
-print(f"Test MAE (compressed scale):  {test_mae:.6f}")
-print(f"Test RMSE (compressed scale): {test_rmse:.6f}")
+print("\nEvaluating LSTM on Test Data...")
+test_mse, test_rmse = model.evaluate(X_test, y_test, verbose=0)
+print(f"Test MSE (compressed scale):          {test_mse:.6f}")
+print(f"Test RMSE / NRMSE (compressed scale): {test_rmse:.6f}")
 
 # Save the trained model
 model.save('models/lstm_traffic_model.keras')
@@ -132,15 +130,21 @@ raw_predictions = model.predict(X_test)
 real_predictions = scaler.inverse_transform(raw_predictions)
 real_actuals = scaler.inverse_transform(y_test.reshape(-1, 1))
 
-# Calculate Regression Metrics
-mae = mean_absolute_error(real_actuals, real_predictions)
+# Calculate regression metrics
 rmse = np.sqrt(mean_squared_error(real_actuals, real_predictions))
 r2 = r2_score(real_actuals, real_predictions)
-print("\n--- Model Performance Report ---")
-print(f"Mean Absolute Error (MAE): {mae:.2f} vehicles")
+
+# NRMSE uses the MinMaxScaler training range as the normalization factor.
+normalization_factor = float(scaler.data_range_[0])
+nrmse = rmse / normalization_factor
+nrmse_percentage = nrmse * 100
+
+print("\n--- LSTM Model Performance Report ---")
 print(f"Root Mean Squared Error (RMSE): {rmse:.2f} vehicles")
-print(f"R-Squared Score: {r2:.4f} (closer to 1.0 means better trend fit)")
-print("--------------------------------")
+print(f"Normalization Factor: {normalization_factor:.2f} vehicles")
+print(f"Normalized RMSE (NRMSE): {nrmse:.6f} ({nrmse_percentage:.2f}%)")
+print(f"R-Squared Score: {r2:.4f}")
+print("------------------------------------")
 
 # Plotting the Learning Curve (Loss)
 plt.figure(figsize=(12, 5))
@@ -168,39 +172,35 @@ print("Evaluation plots saved as 'logs/lstm_evaluation_plots.png'!")
 plt.show()
 
 # GENERATE TRAINING SUMMARY REPORT
+# GENERATE TRAINING SUMMARY REPORT
 # ===================================
 print("\nGenerating Text Summary Report...")
 
 # Extract the initial metrics (Epoch 1)
 initial_loss = history.history['loss'][0] # MSE
-initial_mae = history.history['mae'][0]
 initial_rmse = history.history['rmse'][0]
 initial_val_loss = history.history['val_loss'][0]
-initial_val_mae = history.history['val_mae'][0]
 initial_val_rmse = history.history['val_rmse'][0]
 
 # Extract the final metrics (Last Epoch)
 final_loss = history.history['loss'][-1] # MSE
-final_mae = history.history['mae'][-1]
 final_rmse = history.history['rmse'][-1]
-
 final_val_loss = history.history['val_loss'][-1]
-final_val_mae = history.history['val_mae'][-1]
 final_val_rmse = history.history['val_rmse'][-1]
 
-# Find the best validation MAE and which epoch it happened on
-best_val_mae = min(history.history['val_mae'])
-best_epoch = history.history['val_mae'].index(best_val_mae) + 1
+# Find the best validation RMSE and which epoch it happened on
+best_val_rmse = min(history.history['val_rmse'])
+best_epoch = history.history['val_rmse'].index(best_val_rmse) + 1
 
 # AUTOMATED OVERFITTING ANALYSIS LOGIC
-mae_gap = final_val_mae - final_mae
-# If Validation Error is 20% worse than Training Error, flag it.
-if final_val_mae > (final_mae * 1.2): 
-    overfitting_status = "WARNING: Potential Overfitting (Validation error is significantly higher than training)."
-elif mae_gap > 0:
-    overfitting_status = "HEALTHY: Generalizing well (Validation error is slightly higher than training, which is normal)."
+rmse_gap = final_val_rmse - final_rmse
+
+if final_val_rmse > (final_rmse * 1.2): 
+    overfitting_status = "WARNING: Potential Overfitting (Validation RMSE is significantly higher than training RMSE)."
+elif rmse_gap > 0:
+    overfitting_status = "HEALTHY: Generalizing well (Validation RMSE is slightly higher than training RMSE, which is normal)."
 else:
-    overfitting_status = "EXCELLENT: Generalizing perfectly (Validation error is equal to or lower than training)."
+    overfitting_status = "EXCELLENT: Validation RMSE is equal to or lower than training RMSE."
 
 summary_text = f"""======================================================================
 TRAINING SUMMARY - LEARNING CURVES (LSTM REGRESSION)
@@ -208,53 +208,52 @@ TRAINING SUMMARY - LEARNING CURVES (LSTM REGRESSION)
 
 NOTE:
 ----------------------------------------------------------------------
-The model was trained using compressed traffic-flow values, not the original vehicle counts. Because of this, the training and validation errors are also shown on the compressed scale.
+The model was trained using compressed traffic-flow values, not the original vehicle counts. Because of this, the training and validation errors are shown on the compressed scale.
 
-After testing, the predictions are converted back into real vehicle counts using the saved scaler. The final MAE and RMSE values in the test performance section show the actual prediction error in vehicles.
+After testing, the predictions are converted back into real vehicle counts using the saved scaler. RMSE is reported in vehicles. NRMSE is calculated by dividing RMSE by the scaler's traffic-flow range.
 
 INITIAL METRICS (Epoch 1):
 ----------------------------------------------------------------------
-Training MSE (compressed scale):         {initial_loss:.4f} 
+Training MSE (compressed scale):         {initial_loss:.4f}
 Training RMSE (compressed scale):        {initial_rmse:.4f}
-Training MAE (compressed scale):         {initial_mae:.4f}
-  
-Validation MSE (compressed scale):       {initial_val_loss:.4f} 
+
+Validation MSE (compressed scale):       {initial_val_loss:.4f}
 Validation RMSE (compressed scale):      {initial_val_rmse:.4f}
-Validation MAE (compressed scale):       {initial_val_mae:.4f}
 
 FINAL METRICS (Last Epoch):
 ----------------------------------------------------------------------
-Training MSE (compressed scale):         {final_loss:.4f} 
+Training MSE (compressed scale):         {final_loss:.4f}
 Training RMSE (compressed scale):        {final_rmse:.4f}
-Training MAE (compressed scale):         {final_mae:.4f}
-  
-Validation MSE (compressed scale):       {final_val_loss:.4f} 
+
+Validation MSE (compressed scale):       {final_val_loss:.4f}
 Validation RMSE (compressed scale):      {final_val_rmse:.4f}
-Validation MAE (compressed scale):       {final_val_mae:.4f}
 
 BEST METRICS DURING TRAINING:
 ----------------------------------------------------------------------
-Best Validation MAE (compressed scale):  {best_val_mae:.4f} (Achieved on Epoch {best_epoch})
-Best Validation MSE (compressed scale):  {min(history.history['val_loss']):.4f} 
+Best Validation RMSE (compressed scale): {best_val_rmse:.4f} (Achieved on Epoch {best_epoch})
+Best Validation MSE (compressed scale):  {min(history.history['val_loss']):.4f}
 
 IMPROVEMENT METRICS:
 ----------------------------------------------------------------------
-MSE Reduction (compressed scale):        {initial_loss - final_loss:.4f} 
+MSE Reduction (compressed scale):        {initial_loss - final_loss:.4f}
 RMSE Reduction (compressed scale):       {initial_rmse - final_rmse:.4f}
-MAE Reduction (compressed scale):        {initial_mae - final_mae:.4f}
-  
+
 OVERFITTING ANALYSIS:
 ----------------------------------------------------------------------
-Final MAE Gap (Val - Train, compressed scale): {mae_gap:.4f}
+Final RMSE Gap (Val - Train, compressed scale): {rmse_gap:.4f}
 Generalization Status:               {overfitting_status}
-  
+
 REAL-WORLD TEST PERFORMANCE:
 ----------------------------------------------------------------------
-Test MAE:       {mae:.2f} vehicles
-Test RMSE:      {rmse:.2f} vehicles
-Test R-Squared: {r2:.4f}
+Test RMSE:                 {rmse:.2f} vehicles
+Normalization Factor:      {normalization_factor:.2f} vehicles
+Test NRMSE:                {nrmse:.6f}
+Test NRMSE Percentage:     {nrmse_percentage:.2f}%
+Test R-Squared:            {r2:.4f}
 ======================================================================
 """
+
 with open("logs/lstm_training_summary.txt", "w") as f:
     f.write(summary_text)
+
 print("Summary saved to 'logs/lstm_training_summary.txt'!")
