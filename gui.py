@@ -170,11 +170,11 @@ class TBRGSApp(ctk.CTk):
         self.click_target_var = ctk.StringVar(value=DEFAULT_CLICK_TARGET)
 
         self.add_sidebar_label("Origin SCATS")
-        self.origin_combo = ctk.CTkComboBox(self.sidebar,values=self.site_options,variable=self.origin_var,width=310, state="readonly")
+        self.origin_combo = ctk.CTkComboBox(self.sidebar,values=self.site_options,variable=self.origin_var,width=310, state="readonly", command=lambda _: self.draw_map())
         self.origin_combo.pack(anchor="w", padx=20, pady=(0, 10))
 
         self.add_sidebar_label("Destination SCATS")
-        self.destination_combo = ctk.CTkComboBox(self.sidebar,values=self.site_options,variable=self.destination_var,width=310, state="readonly")
+        self.destination_combo = ctk.CTkComboBox(self.sidebar,values=self.site_options,variable=self.destination_var,width=310, state="readonly", command=lambda _: self.draw_map())
         self.destination_combo.pack(anchor="w", padx=20, pady=(0, 10))
 
         self.add_sidebar_label("Departure hour")
