@@ -462,8 +462,63 @@ def save_test_results(algorithm_results, output_file=OUTPUT_TEST_RESULTS_FILE):
             })
     pd.DataFrame(rows).to_csv(output_file, index=False)
 
+def apply_test_case_modification(edges_df, test_case=None):
+    """
+    Removes selected directed edges to simulate one-way road restrictions
+    for Test Cases 11–15.
+    """
+
+    if test_case is None:
+        return edges_df
+
+    blocked_edges = {
+        11: [
+            (4272, 4264),
+            (3682, 3804),
+            (3122, 4035),
+        ],
+        12: [
+            (4264, 4272),
+            (4272, 4040),
+            (4040, 3804),
+        ],
+        13: [
+            (4263, 4264),
+            (4270, 4272),
+            (4262, 4263),
+        ],
+        14: [
+            (4321, 4335),
+            (4335, 3662),
+            (3662, 3002),
+        ],
+        15: [
+            (4272, 4264),
+            (4264, 3001),
+            (3001, 3002),
+            (4263, 3002),
+        ],
+    }
+
+    if test_case not in blocked_edges:
+        return edges_df
+
+    modified_edges_df = edges_df.copy()
+
+    for start, end in blocked_edges[test_case]:
+        modified_edges_df = modified_edges_df[
+            ~(
+                (modified_edges_df["start_scats"] == start) &
+                (modified_edges_df["end_scats"] == end)
+            )
+        ]
+
+        print(f"Test Case {test_case}: removed edge {start} -> {end}")
+
+    return modified_edges_df.reset_index(drop=True)
+
 # This function is used by the GUI later.
-def find_routes(origin_scats, destination_scats, departure_time=None, departure_datetime=None, model_type="gru", top_k_routes=5, algorithm_names=None):
+def find_routes(origin_scats, destination_scats, departure_time=None, departure_datetime=None, model_type="gru", top_k_routes=5, algorithm_names=None, test_case=None):
     """
     Finds routes using a user-inputted departure time only.
     departure_time is the preferred input, for example "15:00:00".
@@ -478,6 +533,7 @@ def find_routes(origin_scats, destination_scats, departure_time=None, departure_
     departure_time = normalize_departure_time(departure_time)
     nodes_df = load_scats_nodes(SCATS_NODES_FILE)
     edges_df = load_scats_edges(SCATS_EDGES_FILE)
+    edges_df = apply_test_case_modification(edges_df, test_case)
     node_positions = load_a2a_node_positions(A2A_NODE_POSITIONS_FILE)
     origin_scats = int(origin_scats)
     destination_scats = int(destination_scats)

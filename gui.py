@@ -167,6 +167,7 @@ class TBRGSApp(ctk.CTk):
         self.departure_time_var = ctk.StringVar(value=DEFAULT_DEPARTURE_TIME)
         self.model_var = ctk.StringVar(value=DEFAULT_MODEL_MODE)
         self.top_k_var = ctk.StringVar(value=DEFAULT_TOP_K)
+        self.test_case_var = ctk.StringVar(value="None")
         self.click_target_var = ctk.StringVar(value=DEFAULT_CLICK_TARGET)
 
         self.add_sidebar_label("Origin SCATS")
@@ -188,6 +189,24 @@ class TBRGSApp(ctk.CTk):
         self.add_sidebar_label("Top-k routes per algorithm")
         self.top_k_combo = ctk.CTkComboBox(self.sidebar, values=DEFAULT_TOP_K_OPTIONS, variable=self.top_k_var, width=310, state="readonly")
         self.top_k_combo.pack(anchor="w", padx=20, pady=(0, 16))
+
+        self.add_sidebar_label("Test Case (Optional)")
+        self.test_case_combo = ctk.CTkComboBox(
+            self.sidebar,
+            values=[
+                "None",
+                "11",
+                "12",
+                "13",
+                "14",
+                "15",
+            ],
+            variable=self.test_case_var,
+            width=310,
+            state="readonly",
+            command=lambda _: self.draw_map(),
+        )
+        self.test_case_combo.pack(anchor="w", padx=20, pady=(0, 16))
 
         self.add_sidebar_label("Algorithms to run")
         self.algorithm_vars = {}
@@ -325,6 +344,7 @@ class TBRGSApp(ctk.CTk):
         if width <= 1 or height <= 1:
             return
         self.draw_base_edges(width, height)
+        self.draw_test_case_one_way_edge(width, height)
         self.draw_current_route(width, height)
         self.draw_edge_costs(width, height)
         self.draw_nodes(width, height)
@@ -359,6 +379,115 @@ class TBRGSApp(ctk.CTk):
             x2, y2 = self.latlon_to_canvas(self.node_lookup[end]["latitude"],self.node_lookup[end]["longitude"],width,height)
             visual_scale = max(0.8, min(1.4, self.map_zoom))
             self.canvas.create_line(x1, y1, x2, y2, fill=ROUTE_COLOR, width=5 * visual_scale, arrow=tk.LAST, arrowshape=(int(14 * visual_scale),int(16 * visual_scale),int(6 * visual_scale)))
+
+
+    def draw_test_case_one_way_edge(self, width, height):
+        """
+        Draw blocked one-way roads for the currently selected test case only.
+        Red dashed arrows show the road directions that have been removed.
+        Nothing is drawn when the test case is set to None.
+        """
+        if not hasattr(self, "test_case_var"):
+            return
+
+        selected = self.test_case_var.get()
+        if selected == "None":
+            return
+
+        blocked_edges = {
+            11: [
+                (4272, 4264),
+                (3682, 3804),
+                (3122, 4035),
+            ],
+            12: [
+                (4264, 4272),
+                (4272, 4040),
+                (4040, 3804),
+            ],
+             13: [
+                (4263, 4264),
+                (4270, 4272),
+                (4262, 4263),
+            ],
+            14: [
+                (4321, 4335),
+                (4335, 3662),
+                (3662, 3002),
+            ],
+            15: [
+                (4272, 4264),
+                (4264, 3001),
+                (3001, 3002),
+                (4263, 3002),
+            ],
+        }
+
+        try:
+            test_case = int(selected.split(" - ")[0])
+        except Exception:
+            return
+
+        if test_case not in blocked_edges:
+            return
+
+        visual_scale = max(0.9, min(1.3, self.map_zoom))
+
+        for start, end in blocked_edges[test_case]:
+            if start not in self.node_lookup or end not in self.node_lookup:
+                continue
+
+            x1, y1 = self.latlon_to_canvas(
+                self.node_lookup[start]["latitude"],
+                self.node_lookup[start]["longitude"],
+                width,
+                height,
+            )
+
+            x2, y2 = self.latlon_to_canvas(
+                self.node_lookup[end]["latitude"],
+                self.node_lookup[end]["longitude"],
+                width,
+                height,
+            )
+
+            self.canvas.create_line(
+                x1,
+                y1,
+                x2,
+                y2,
+                fill="#ef4444",
+                width=4 * visual_scale,
+                arrow=tk.LAST,
+                arrowshape=(
+                    int(16 * visual_scale),
+                    int(18 * visual_scale),
+                    int(7 * visual_scale)
+                ),
+                dash=(8, 4),
+            )
+
+            mid_x = (x1 + x2) / 2
+            mid_y = (y1 + y2) / 2
+            label_text = f"Blocked {start}->{end}"
+
+            self.canvas.create_rectangle(
+                mid_x - 62,
+                mid_y - 11,
+                mid_x + 62,
+                mid_y + 11,
+                fill="#1f2937",
+                outline="#ef4444",
+                width=1,
+            )
+
+            self.canvas.create_text(
+                mid_x,
+                mid_y,
+                text=label_text,
+                fill="#ef4444",
+                font=("Segoe UI", 8, "bold"),
+            )
 
     def draw_nodes(self, width, height):
         origin_site = self.parse_site_selection(self.origin_var.get())
@@ -405,12 +534,16 @@ class TBRGSApp(ctk.CTk):
 
     def draw_map_legend(self, width, height):
         x = 18
-        y = height - 92
-        self.canvas.create_rectangle(x,y,x + 210,y + 74,fill="#1f2937",outline="#4b5563")
-        self.canvas.create_text(x + 12,y + 12,text="Legend",fill="#f9fafb",font=("Segoe UI", 10, "bold"),anchor="w")
+        show_blocked = hasattr(self, "test_case_var") and self.test_case_var.get() != "None"
+        box_height = 96 if show_blocked else 74
+        y = height - box_height - 18
+        self.canvas.create_rectangle(x, y, x + 210, y + box_height, fill="#1f2937", outline="#4b5563")
+        self.canvas.create_text(x + 12, y + 12, text="Legend", fill="#f9fafb", font=("Segoe UI", 10, "bold"), anchor="w")
         self.draw_legend_item(x + 14, y + 34, ORIGIN_COLOR, "Origin")
         self.draw_legend_item(x + 95, y + 34, DESTINATION_COLOR, "Destination")
         self.draw_legend_item(x + 14, y + 56, ROUTE_COLOR, "Highlighted route")
+        if show_blocked:
+            self.draw_legend_arrow(x + 14, y + 78, "#ef4444", "Blocked one-way road")
     
     # Node Info Panel
     def draw_node_info_panel(self, width, height):
@@ -436,7 +569,11 @@ class TBRGSApp(ctk.CTk):
 
     def draw_legend_item(self, x, y, color, text):
         self.canvas.create_oval(x, y - 5, x + 10, y + 5, fill=color, outline="")
-        self.canvas.create_text(x + 16,y,text=text,fill="#d1d5db",font=("Segoe UI", 9),anchor="w")
+        self.canvas.create_text(x + 16, y, text=text, fill="#d1d5db", font=("Segoe UI", 9), anchor="w")
+
+    def draw_legend_arrow(self, x, y, color, text):
+        self.canvas.create_line(x, y, x + 10, y, fill=color, width=2, arrow=tk.LAST, arrowshape=(7, 9, 4), dash=(5, 3))
+        self.canvas.create_text(x + 16, y, text=text, fill="#d1d5db", font=("Segoe UI", 9), anchor="w")
     
     def get_edge_cost_lookup(self):
         if not self.latest_results_by_model:
@@ -641,6 +778,11 @@ class TBRGSApp(ctk.CTk):
                 return
 
             top_k = int(self.top_k_var.get())
+            selected_test_case = self.test_case_var.get()
+            if selected_test_case == "None":
+                test_case = None
+            else:
+                test_case = int(selected_test_case.split(" - ")[0])
             selected_algorithms = [algorithm_name for algorithm_name, variable in self.algorithm_vars.items() if variable.get()]
 
             # Validation: Ensure at least one algorithm is checked
@@ -663,14 +805,14 @@ class TBRGSApp(ctk.CTk):
         self.status_label.configure(text="Predicting traffic flow from selected time and running search algorithms...")
 
         # Route calculation may take a few seconds, so it runs in a worker thread.
-        worker = threading.Thread(target=self.run_route_search_worker, args=(origin, destination, departure_time, model_types, top_k, selected_algorithms), daemon=True)
+        worker = threading.Thread(target=self.run_route_search_worker, args=(origin, destination, departure_time, model_types, top_k, selected_algorithms, test_case), daemon=True)
         worker.start()
 
-    def run_route_search_worker(self, origin, destination, departure_time, model_types, top_k, selected_algorithms):
+    def run_route_search_worker(self, origin, destination, departure_time, model_types, top_k, selected_algorithms, test_case):
         try:
             results_by_model = {}
             for model_type in model_types:
-                results_by_model[model_type] = find_routes(origin_scats=origin, destination_scats=destination, departure_time=departure_time, model_type=model_type, top_k_routes=top_k, algorithm_names=selected_algorithms)
+                results_by_model[model_type] = find_routes(origin_scats=origin, destination_scats=destination, departure_time=departure_time, model_type=model_type, top_k_routes=top_k, algorithm_names=selected_algorithms, test_case=test_case)
             self.after(0, lambda: self.on_route_search_finished(results_by_model))
         except Exception as error:
             error_message = str(error)
